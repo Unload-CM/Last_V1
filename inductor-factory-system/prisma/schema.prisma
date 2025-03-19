@@ -1,0 +1,117 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// 사용자 모델
+model User {
+  id             String   @id @default(uuid())
+  name           String
+  email          String   @unique
+  password       String
+  role           Role     @default(STAFF)
+  departmentId   String?
+  department     Department? @relation(fields: [departmentId], references: [id])
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  issues         Issue[]  @relation("CreatedBy")
+  resolvedIssues Issue[]  @relation("ResolvedBy")
+}
+
+// 부서 모델
+model Department {
+  id        String   @id @default(uuid())
+  name      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  users     User[]
+  issues    Issue[]
+}
+
+// 문제 카테고리 모델
+model IssueCategory {
+  id        String   @id @default(uuid())
+  name      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  issues    Issue[]
+}
+
+// 문제 모델
+model Issue {
+  id             String       @id @default(uuid())
+  title          String
+  description    String
+  status         IssueStatus  @default(OPEN)
+  priority       Priority     @default(MEDIUM)
+  createdById    String
+  createdBy      User         @relation("CreatedBy", fields: [createdById], references: [id])
+  resolvedById   String?
+  resolvedBy     User?        @relation("ResolvedBy", fields: [resolvedById], references: [id])
+  departmentId   String
+  department     Department   @relation(fields: [departmentId], references: [id])
+  categoryId     String
+  category       IssueCategory @relation(fields: [categoryId], references: [id])
+  dueDate        DateTime?
+  resolvedAt     DateTime?
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  media          Media[]
+  comments       Comment[]
+}
+
+// 미디어 모델 (사진, 동영상)
+model Media {
+  id        String   @id @default(uuid())
+  type      MediaType
+  url       String
+  issueId   String
+  issue     Issue    @relation(fields: [issueId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+}
+
+// 코멘트 모델
+model Comment {
+  id        String   @id @default(uuid())
+  content   String
+  issueId   String
+  issue     Issue    @relation(fields: [issueId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// 열거형 정의
+enum Role {
+  ADMIN
+  MANAGER
+  STAFF
+}
+
+enum IssueStatus {
+  OPEN
+  IN_PROGRESS
+  RESOLVED
+  CLOSED
+}
+
+enum Priority {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum MediaType {
+  IMAGE
+  VIDEO
+}

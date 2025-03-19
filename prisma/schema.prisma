@@ -1,0 +1,218 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Status {
+  id              Int       @id @default(autoincrement())
+  name            String    @unique
+  label           String
+  thaiLabel       String?
+  description     String?
+  thaiDescription String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  issues          Issue[]
+
+  @@map("statuses")
+}
+
+model Priority {
+  id              Int       @id @default(autoincrement())
+  name            String    @unique
+  label           String
+  thaiLabel       String?
+  description     String?
+  thaiDescription String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  issues          Issue[]
+
+  @@map("priorities")
+}
+
+model Category {
+  id              Int       @id @default(autoincrement())
+  name            String    @unique
+  label           String
+  thaiLabel       String?
+  description     String?
+  thaiDescription String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  issues          Issue[]
+
+  @@map("categories")
+}
+
+model Department {
+  id              Int       @id @default(autoincrement())
+  name            String    @unique
+  label           String
+  thaiLabel       String?
+  description     String?
+  thaiDescription String?
+  employees       Employee[]
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  issues          Issue[]    @relation("DepartmentIssues")
+  transferredIssues Issue[] @relation("TransferredIssues")
+
+  @@map("departments")
+  @@index([name])
+}
+
+model Employee {
+  id          Int      @id @default(autoincrement())
+  employeeId  String   @unique @db.Text
+  isThai      Boolean  @default(false)
+  thaiName    String?  @db.Text
+  nickname    String?  @db.Text
+  koreanName  String   @db.Text
+  department  Department @relation(fields: [departmentId], references: [id])
+  departmentId Int
+  isAdmin     Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  assignedIssues        Issue[] @relation("AssignedIssues")
+  previousAssignedIssues Issue[] @relation("PreviousAssignedIssues")
+  issueHistoryChanges   IssueHistory[] @relation("ChangedByEmployee")
+  notifications         IssueNotification[]
+  comments              IssueComment[] @relation("CommentAuthor")
+
+  @@map("employees")
+  @@index([departmentId])
+}
+
+model ThaiPhrase {
+  id        Int      @id @default(autoincrement())
+  text      String   @db.Text
+  tags      Tag[]    @relation("PhraseToTag")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Tag {
+  id        Int          @id @default(autoincrement())
+  name      String       @unique
+  phrases   ThaiPhrase[] @relation("PhraseToTag")
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
+}
+
+model Issue {
+  id          Int      @id @default(autoincrement())
+  title       String   @db.Text
+  description String?  @db.Text
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  dueDate     DateTime?
+
+  assignee         Employee? @relation("AssignedIssues", fields: [assigneeId], references: [id])
+  assigneeId       Int?
+  previousAssignee Employee? @relation("PreviousAssignedIssues", fields: [previousAssigneeId], references: [id])
+  previousAssigneeId Int?
+  
+  department         Department @relation("DepartmentIssues", fields: [departmentId], references: [id])
+  departmentId       Int
+  transferredFromDept Department? @relation("TransferredIssues", fields: [transferredFromDeptId], references: [id])
+  transferredFromDeptId Int?
+
+  status     Status    @relation(fields: [statusId], references: [id])
+  statusId   Int
+  priority   Priority  @relation(fields: [priorityId], references: [id])
+  priorityId Int
+  category   Category  @relation(fields: [categoryId], references: [id])
+  categoryId Int
+
+  history      IssueHistory[]
+  notifications IssueNotification[]
+  comments     IssueComment[]
+  attachments  IssueAttachment[]
+
+  @@index([assigneeId])
+  @@index([departmentId])
+  @@index([statusId])
+  @@index([priorityId])
+}
+
+model IssueHistory {
+  id          Int      @id @default(autoincrement())
+  createdAt   DateTime @default(now())
+  
+  issue       Issue    @relation(fields: [issueId], references: [id])
+  issueId     Int
+  
+  changedBy   Employee @relation("ChangedByEmployee", fields: [changedById], references: [id])
+  changedById Int
+  
+  changeType  String   // ASSIGNEE_CHANGE, DEPARTMENT_TRANSFER, STATUS_CHANGE
+  comment     String?  @db.Text
+  
+  previousValue String? @db.Text
+  newValue     String? @db.Text
+
+  @@index([issueId])
+  @@index([changedById])
+}
+
+model IssueNotification {
+  id          Int      @id @default(autoincrement())
+  createdAt   DateTime @default(now())
+  
+  issue       Issue    @relation(fields: [issueId], references: [id])
+  issueId     Int
+  
+  employee    Employee @relation(fields: [employeeId], references: [id])
+  employeeId  Int
+  
+  type        String   // ASSIGNED, TRANSFERRED, COMPLETED, MENTIONED
+  isRead      Boolean  @default(false)
+  message     String   @db.Text
+
+  @@index([issueId])
+  @@index([employeeId])
+  @@index([isRead])
+}
+
+model IssueComment {
+  id        Int      @id @default(autoincrement())
+  content   String   @db.Text
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  issue     Issue    @relation(fields: [issueId], references: [id], onDelete: Cascade)
+  issueId   Int
+  author    Employee @relation("CommentAuthor", fields: [authorId], references: [id])
+  authorId  Int
+
+  @@index([issueId])
+  @@index([authorId])
+}
+
+model IssueAttachment {
+  id        Int      @id @default(autoincrement())
+  fileName  String   @db.Text
+  fileUrl   String   @db.Text
+  fileType  String?  @db.Text
+  fileSize  Int?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  issue     Issue    @relation(fields: [issueId], references: [id], onDelete: Cascade)
+  issueId   Int
+
+  @@index([issueId])
+}

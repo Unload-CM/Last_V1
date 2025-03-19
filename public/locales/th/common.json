@@ -1,0 +1,94 @@
+{
+  "navigation": {
+    "login": "เข้าสู่ระบบ",
+    "dashboard": "แดชบอร์ด",
+    "issues": "ปัญหา",
+    "settings": "การตั้งค่า",
+    "reports": "รายงาน",
+    "logout": "ออกจากระบบ"
+  },
+  "login": {
+    "title": "ระบบจัดการโรงงานอินดักเตอร์",
+    "email": "อีเมล",
+    "password": "รหัสผ่าน",
+    "submit": "เข้าสู่ระบบ",
+    "error": "เข้าสู่ระบบล้มเหลว โปรดตรวจสอบอีเมลและรหัสผ่านของคุณ"
+  },
+  "dashboard": {
+    "title": "แดชบอร์ด",
+    "issuesByCategory": "ปัญหาตามหมวดหมู่",
+    "issuesByStatus": "ปัญหาตามสถานะ",
+    "issuesByDepartment": "ปัญหาตามแผนก",
+    "recentIssues": "ปัญหาล่าสุด",
+    "weeklyReport": "รายงานประจำสัปดาห์"
+  },
+  "issues": {
+    "title": "ปัญหา",
+    "newIssue": "ปัญหาใหม่",
+    "search": "ค้นหาปัญหา",
+    "filter": "กรอง",
+    "status": "สถานะ",
+    "priority": "ความสำคัญ",
+    "category": "หมวดหมู่",
+    "department": "แผนก",
+    "createdBy": "สร้างโดย",
+    "createdAt": "สร้างเมื่อ",
+    "dueDate": "กำหนดส่ง",
+    "resolvedBy": "แก้ไขโดย",
+    "resolvedAt": "แก้ไขเมื่อ",
+    "description": "คำอธิบาย",
+    "media": "สื่อ",
+    "comments": "ความคิดเห็น",
+    "addComment": "เพิ่มความคิดเห็น",
+    "uploadMedia": "อัปโหลดสื่อ",
+    "save": "บันทึก",
+    "cancel": "ยกเลิก",
+    "delete": "ลบ",
+    "edit": "แก้ไข"
+  },
+  "settings": {
+    "title": "การตั้งค่า",
+    "users": "จัดการผู้ใช้",
+    "departments": "จัดการแผนก",
+    "categories": "จัดการหมวดหมู่",
+    "newUser": "ผู้ใช้ใหม่",
+    "newDepartment": "แผนกใหม่",
+    "newCategory": "หมวดหมู่ใหม่",
+    "name": "ชื่อ",
+    "email": "อีเมล",
+    "password": "รหัสผ่าน",
+    "role": "บทบาท",
+    "department": "แผนก",
+    "save": "บันทึก",
+    "cancel": "ยกเลิก",
+    "delete": "ลบ",
+    "edit": "แก้ไข"
+  },
+  "reports": {
+    "title": "รายงาน",
+    "weekly": "รายงานประจำสัปดาห์",
+    "monthly": "รายงานประจำเดือน",
+    "quarterly": "รายงานประจำไตรมาส",
+    "yearly": "รายงานประจำปี",
+    "generateReport": "สร้างรายงาน",
+    "export": "ส่งออก",
+    "print": "พิมพ์"
+  },
+  "status": {
+    "open": "เปิด",
+    "inProgress": "กำลังดำเนินการ",
+    "resolved": "แก้ไขแล้ว",
+    "closed": "ปิด"
+  },
+  "priority": {
+    "low": "ต่ำ",
+    "medium": "ปานกลาง",
+    "high": "สูง",
+    "critical": "วิกฤต"
+  },
+  "role": {
+    "admin": "ผู้ดูแลระบบ",
+    "manager": "ผู้จัดการ",
+    "staff": "พนักงาน"
+  }
+} 

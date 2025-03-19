@@ -1,0 +1,1352 @@
+'use client';
+
+import { useState, useEffect, useRef } from 'react';
+import Navigation from '@/components/Navigation';
+import { FiSearch, FiUserPlus, FiFilter, FiDownload, FiUser, FiPhone, FiMail, FiCalendar, FiChevronLeft, FiChevronRight, FiX, FiUpload } from 'react-icons/fi';
+import { format } from 'date-fns';
+import * as XLSX from 'xlsx';
+
+// 임시 다국어 처리 함수
+const useTranslation = () => {
+  return {
+    t: (key: string) => {
+      const translations: {[key: string]: string} = {
+        'employees.title': '사원 관리',
+        'employees.description': '사원 정보 관리 및 조회',
+        'employees.search': '사원 검색',
+        'employees.addNew': '신규 등록',
+        'employees.filter': '필터',
+        'employees.export': '내보내기',
+        'employees.id': '사원 ID',
+        'employees.name': '이름',
+        'employees.position': '직책',
+        'employees.department': '부서',
+        'employees.contact': '연락처',
+        'employees.email': '이메일',
+        'employees.hireDate': '입사일',
+        'employees.actions': '작업',
+        'employees.total': '총 사원 수',
+        'employees.page': '페이지',
+        'employees.of': '/',
+        'employees.prev': '이전',
+        'employees.next': '다음',
+        'employees.noResults': '검색 결과가 없습니다',
+        'employees.loading': '데이터를 불러오는 중...',
+        'employees.error': '데이터를 불러오는 중 오류가 발생했습니다',
+        'employees.filterTitle': '필터 옵션',
+        'employees.filterPosition': '직책 필터',
+        'employees.filterDepartment': '부서 필터',
+        'employees.filterApply': '적용',
+        'employees.filterReset': '초기화',
+        'employees.edit': '편집',
+        'employees.delete': '삭제'
+      };
+      return translations[key] || key;
+    }
+  };
+};
+
+// 사원 타입 정의
+interface Employee {
+  id: number;
+  employeeId: string;
+  name: string;
+  position: string;
+  department: string;
+  contact: string;
+  email: string;
+  hireDate: string;
+}
+
+// 페이지네이션 정보 타입 정의
+interface Pagination {
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
+}
+
+// 부서 아이템 타입 정의
+interface DepartmentItem {
+  id: number;
+  value: string;
+  label: string;
+  description: string;
+}
+
+// 기본 부서 데이터
+const DEFAULT_DEPARTMENT_ITEMS = [
+  { id: 1, value: '생산부', label: '생산부', description: '제품 생산 담당' },
+  { id: 2, value: '품질관리부', label: '품질관리부', description: '품질 검사 및 관리 담당' },
+  { id: 3, value: '물류창고', label: '물류창고', description: '물류 및 재고 관리 담당' },
+  { id: 4, value: '자재관리', label: '자재관리', description: '자재 조달 및 관리 담당' },
+];
+
+export default function EmployeesPage() {
+  const { t } = useTranslation();
+  const [employees, setEmployees] = useState<Employee[]>([]);
+  const [pagination, setPagination] = useState<Pagination>({
+    total: 0,
+    page: 1,
+    limit: 10,
+    totalPages: 0
+  });
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  
+  // 검색 및 필터 상태
+  const [searchTerm, setSearchTerm] = useState('');
+  const [isFilterOpen, setIsFilterOpen] = useState(false);
+  const [positionFilter, setPositionFilter] = useState('');
+  const [departmentFilter, setDepartmentFilter] = useState('');
+  const [employeeIdFilter, setEmployeeIdFilter] = useState('');
+  
+  // 직책 및 부서 목록
+  const positions = ['관리자', '사원'];
+  const [departments, setDepartments] = useState<string[]>([]);
+  const [departmentItems, setDepartmentItems] = useState<DepartmentItem[]>(DEFAULT_DEPARTMENT_ITEMS);
+  
+  // 신규 등록 모달 상태
+  const [isNewEmployeeModalOpen, setIsNewEmployeeModalOpen] = useState(false);
+  const [newEmployee, setNewEmployee] = useState({
+    name: '',
+    position: '',
+    department: '',
+    contact: '',
+    email: '',
+    hireDate: format(new Date(), 'yyyy-MM-dd'),
+    employeeIdNumber: ''
+  });
+  const [formErrors, setFormErrors] = useState<{[key: string]: string}>({});
+  
+  // 데이터 초기화 확인 모달
+  const [showDataResetModal, setShowDataResetModal] = useState(false);
+  const [showLargeDataWarning, setShowLargeDataWarning] = useState(false);
+  const [employeeCount, setEmployeeCount] = useState(0);
+  
+  // 엑셀 파일 업로드 관련 상태
+  const [showExcelImportModal, setShowExcelImportModal] = useState(false);
+  const [importResults, setImportResults] = useState<{
+    total: number;
+    success: number;
+    errors: string[];
+  }>({ total: 0, success: 0, errors: [] });
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  
+  // 데이터 초기화 확인
+  useEffect(() => {
+    try {
+      // 로컬 스토리지에서 직원 데이터 확인
+      const storedEmployees = JSON.parse(localStorage.getItem('employees') || '[]');
+      setEmployeeCount(storedEmployees.length);
+      
+      // 자동 생성된 데이터로 추정되는 경우 (500개 이상) - 경고만 표시
+      if (storedEmployees.length >= 500) {
+        console.log('많은 양의 직원 데이터가 발견되었습니다(500명 이상). 자동 생성된 데이터일 수 있습니다.');
+        setShowLargeDataWarning(true);
+      }
+    } catch (error) {
+      console.error('직원 데이터 확인 중 오류 발생:', error);
+    }
+  }, []);
+  
+  // 부서 데이터 로드
+  useEffect(() => {
+    try {
+      // 로컬 스토리지에서 부서 데이터 로드
+      const savedDepartmentItems = localStorage.getItem('departmentItems');
+      if (savedDepartmentItems) {
+        const parsedDepartmentItems = JSON.parse(savedDepartmentItems);
+        setDepartmentItems(parsedDepartmentItems);
+        // 부서 이름만 추출하여 배열로 저장
+        setDepartments(parsedDepartmentItems.map((item: DepartmentItem) => item.value));
+      } else {
+        // 기본 부서 데이터 사용
+        setDepartments(DEFAULT_DEPARTMENT_ITEMS.map(item => item.value));
+      }
+    } catch (error) {
+      console.error('부서 데이터 로드 중 오류 발생:', error);
+      // 오류 발생 시 기본 부서 데이터 사용
+      setDepartments(DEFAULT_DEPARTMENT_ITEMS.map(item => item.value));
+    }
+  }, []);
+  
+  // 사원 데이터 불러오기
+  const fetchEmployees = () => {
+    setLoading(true);
+    setError(null);
+    
+    try {
+      // 로컬 스토리지에서 직접 데이터 로드
+      const employees = JSON.parse(localStorage.getItem('employees') || '[]');
+      
+      // 검색 필터링
+      let filteredEmployees = [...employees];
+      
+      if (searchTerm) {
+        const searchLower = searchTerm.toLowerCase();
+        filteredEmployees = filteredEmployees.filter(emp => 
+          emp.name.toLowerCase().includes(searchLower) ||
+          (emp.employeeId && emp.employeeId.toLowerCase().includes(searchLower)) ||
+          (emp.email && emp.email.toLowerCase().includes(searchLower)) ||
+          (emp.contact && emp.contact.includes(searchTerm))
+        );
+      }
+      
+      // 직책 필터링
+      if (positionFilter) {
+        filteredEmployees = filteredEmployees.filter(emp => emp.position === positionFilter);
+      }
+      
+      // 부서 필터링
+      if (departmentFilter) {
+        filteredEmployees = filteredEmployees.filter(emp => emp.department === departmentFilter);
+      }
+      
+      // 사원 ID 필터링
+      if (employeeIdFilter) {
+        filteredEmployees = filteredEmployees.filter(emp => 
+          emp.employeeId && emp.employeeId.toLowerCase().includes(employeeIdFilter.toLowerCase())
+        );
+      }
+      
+      // 총 직원 수
+      const totalCount = filteredEmployees.length;
+      
+      // 페이지네이션 계산
+      const start = (pagination.page - 1) * pagination.limit;
+      const end = start + pagination.limit;
+      const paginatedEmployees = filteredEmployees.slice(start, end);
+      
+      // 데이터 설정
+      setEmployees(paginatedEmployees);
+      setPagination(prev => ({
+        ...prev,
+        total: totalCount,
+        totalPages: Math.ceil(totalCount / pagination.limit)
+      }));
+    } catch (err) {
+      console.error('사원 데이터 불러오기 오류:', err);
+      setError('사원 데이터를 불러오는 중 오류가 발생했습니다.');
+    } finally {
+      setLoading(false);
+    }
+  };
+  
+  // 페이지 변경 처리
+  const handlePageChange = (newPage: number) => {
+    if (newPage >= 1 && newPage <= pagination.totalPages) {
+      setPagination(prev => ({ ...prev, page: newPage }));
+    }
+  };
+  
+  // 필터 적용
+  const applyFilters = () => {
+    setPagination(prev => ({ ...prev, page: 1 })); // 필터 적용 시 첫 페이지로 이동
+    setIsFilterOpen(false);
+    fetchEmployees();
+  };
+  
+  // 필터 초기화
+  const resetFilters = () => {
+    setSearchTerm('');
+    setPositionFilter('');
+    setDepartmentFilter('');
+    setEmployeeIdFilter('');
+    setPagination(prev => ({ ...prev, page: 1 }));
+    setIsFilterOpen(false);
+  };
+  
+  // 검색어 변경 시 API 호출
+  useEffect(() => {
+    const delayDebounceFn = setTimeout(() => {
+      setPagination(prev => ({ ...prev, page: 1 }));
+      fetchEmployees();
+    }, 500);
+    
+    return () => clearTimeout(delayDebounceFn);
+  }, [searchTerm]);
+  
+  // 페이지, 필터 변경 시 API 호출
+  useEffect(() => {
+    fetchEmployees();
+  }, [pagination.page, pagination.limit]);
+  
+  // 날짜 포맷팅 함수
+  const formatDate = (dateString: string) => {
+    try {
+      return format(new Date(dateString), 'yyyy-MM-dd');
+    } catch (e) {
+      return dateString;
+    }
+  };
+  
+  // 신규 사원 입력 처리
+  const handleNewEmployeeChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+    const { name, value } = e.target;
+    
+    // 사원 ID 번호 처리 - 숫자만 입력 가능하도록
+    if (name === 'employeeIdNumber') {
+      // 숫자만 허용
+      const numericValue = value.replace(/\D/g, '');
+      setNewEmployee(prev => ({ ...prev, [name]: numericValue }));
+    } else {
+      setNewEmployee(prev => ({ ...prev, [name]: value }));
+    }
+    
+    // 에러 상태 초기화
+    if (formErrors[name]) {
+      setFormErrors(prev => {
+        const newErrors = { ...prev };
+        delete newErrors[name];
+        return newErrors;
+      });
+    }
+  };
+  
+  // 신규 사원 등록 처리
+  const handleSubmitNewEmployee = (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    // 사원 ID 번호가 4자리 미만인 경우 앞에 0 채우기
+    let formattedIdNumber = newEmployee.employeeIdNumber;
+    if (formattedIdNumber.length > 0 && formattedIdNumber.length < 4) {
+      formattedIdNumber = formattedIdNumber.padStart(4, '0');
+      setNewEmployee(prev => ({ ...prev, employeeIdNumber: formattedIdNumber }));
+    }
+    
+    // 유효성 검사
+    const errors: {[key: string]: string} = {};
+    if (!newEmployee.name.trim()) errors.name = '이름을 입력해주세요';
+    if (!newEmployee.position) errors.position = '직책을 선택해주세요';
+    if (!newEmployee.department) errors.department = '부서를 선택해주세요';
+    if (!newEmployee.contact.trim()) errors.contact = '연락처를 입력해주세요';
+    if (!newEmployee.hireDate) errors.hireDate = '입사일을 선택해주세요';
+    
+    // 사원 ID 번호 검사 추가
+    if (!newEmployee.employeeIdNumber.trim()) {
+      errors.employeeIdNumber = '사원 ID 번호를 입력해주세요';
+    } else if (!/^\d{4}$/.test(newEmployee.employeeIdNumber)) {
+      errors.employeeIdNumber = '사원 ID 번호는 4자리 숫자여야 합니다';
+    }
+    
+    // 이메일 형식 검사 (이메일이 있는 경우에만)
+    if (newEmployee.email) {
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(newEmployee.email)) {
+        errors.email = '유효한 이메일 주소를 입력해주세요';
+      }
+    }
+    
+    // 연락처 형식 검사
+    const phoneRegex = /^01([0|1|6|7|8|9])(-?[0-9]{3,4})(-?[0-9]{4})$/;
+    if (newEmployee.contact && !phoneRegex.test(newEmployee.contact)) {
+      errors.contact = '유효한 연락처를 입력해주세요 (예: 01012345678 또는 010-1234-5678)';
+    }
+    
+    if (Object.keys(errors).length > 0) {
+      setFormErrors(errors);
+      return;
+    }
+    
+    try {
+      // 로컬 스토리지에서 기존 직원 데이터 가져오기
+      const existingEmployees = JSON.parse(localStorage.getItem('employees') || '[]');
+      
+      // 사원 ID 중복 확인
+      const newEmployeeId = `TCME${newEmployee.employeeIdNumber}`;
+      const isIdDuplicate = existingEmployees.some((emp: any) => emp.employeeId === newEmployeeId);
+      
+      if (isIdDuplicate) {
+        setFormErrors({ employeeIdNumber: '이미 사용 중인 사원 ID 번호입니다' });
+        return;
+      }
+      
+      // 새 직원 ID 생성 - 여기서는 입력한 4자리 숫자를 사용
+      const lastId = existingEmployees.length > 0 ? 
+        Math.max(...existingEmployees.map((emp: any) => emp.id)) : 0;
+      
+      // 연락처 형식 정리 (하이픈 추가)
+      let formattedContact = newEmployee.contact;
+      // 하이픈이 없는 경우 추가
+      if (!formattedContact.includes('-')) {
+        if (formattedContact.length === 11) { // 01012345678 형식
+          formattedContact = `${formattedContact.slice(0, 3)}-${formattedContact.slice(3, 7)}-${formattedContact.slice(7)}`;
+        } else if (formattedContact.length === 10) { // 0101234567 형식
+          formattedContact = `${formattedContact.slice(0, 3)}-${formattedContact.slice(3, 6)}-${formattedContact.slice(6)}`;
+        }
+      }
+      
+      // 새 직원 객체 생성
+      const newEmployeeData = {
+        id: lastId + 1,
+        employeeId: newEmployeeId, // TCME + 4자리 숫자
+        name: newEmployee.name,
+        position: newEmployee.position,
+        department: newEmployee.department,
+        contact: formattedContact,
+        email: newEmployee.email || '',
+        hireDate: newEmployee.hireDate,
+        value: newEmployee.name,
+        label: `${newEmployee.name} (${newEmployee.department} - ${newEmployee.position})`
+      };
+      
+      // 로컬 스토리지에 저장
+      const updatedEmployees = [...existingEmployees, newEmployeeData];
+      localStorage.setItem('employees', JSON.stringify(updatedEmployees));
+      
+      // 매니저인 경우 관리자 목록에 추가
+      if (newEmployee.position === '매니저') {
+        const existingAdmins = JSON.parse(localStorage.getItem('admins') || '[]');
+        const newAdmin = {
+          id: newEmployeeData.id,
+          value: newEmployeeData.name,
+          label: newEmployeeData.name,
+          department: newEmployeeData.department,
+          position: newEmployeeData.position
+        };
+        
+        const updatedAdmins = [...existingAdmins, newAdmin];
+        localStorage.setItem('admins', JSON.stringify(updatedAdmins));
+      }
+      
+      // 모달 닫고 폼 초기화
+      setIsNewEmployeeModalOpen(false);
+      setNewEmployee({
+        name: '',
+        position: '',
+        department: '',
+        contact: '',
+        email: '',
+        hireDate: format(new Date(), 'yyyy-MM-dd'),
+        employeeIdNumber: ''
+      });
+      
+      // 데이터 새로고침
+      fetchEmployees();
+      alert('사원이 성공적으로 등록되었습니다.');
+    } catch (err: any) {
+      console.error('사원 등록 오류:', err);
+      alert(err.message || '사원 등록 중 오류가 발생했습니다.');
+    }
+  };
+  
+  // 사원 삭제 함수
+  const handleDeleteEmployee = (id: number) => {
+    if (window.confirm('정말로 이 사원을 삭제하시겠습니까?')) {
+      try {
+        // 로컬 스토리지에서 데이터 가져오기
+        const existingEmployees = JSON.parse(localStorage.getItem('employees') || '[]');
+        
+        // 삭제할 사원 찾기
+        const employeeToDelete = existingEmployees.find((emp: Employee) => emp.id === id);
+        if (!employeeToDelete) {
+          alert('해당 사원을 찾을 수 없습니다.');
+          return;
+        }
+        
+        // 직원 목록에서 제거
+        const updatedEmployees = existingEmployees.filter((emp: Employee) => emp.id !== id);
+        localStorage.setItem('employees', JSON.stringify(updatedEmployees));
+        
+        // 매니저인 경우 관리자 목록에서도 제거
+        if (employeeToDelete.position === '매니저') {
+          const existingAdmins = JSON.parse(localStorage.getItem('admins') || '[]');
+          const updatedAdmins = existingAdmins.filter((admin: any) => admin.id !== id);
+          localStorage.setItem('admins', JSON.stringify(updatedAdmins));
+        }
+        
+        // 데이터 새로고침
+        fetchEmployees();
+        alert('사원이 성공적으로 삭제되었습니다.');
+      } catch (err) {
+        console.error('사원 삭제 오류:', err);
+        alert('사원 삭제 중 오류가 발생했습니다.');
+      }
+    }
+  };
+  
+  // 모든 사원 삭제 함수
+  const handleDeleteAllEmployees = () => {
+    resetEmployeeData();
+  };
+  
+  // 데이터 초기화 함수
+  const resetEmployeeData = () => {
+    try {
+      // 로컬 스토리지에서 직원 및 관리자 데이터 삭제
+      localStorage.removeItem('employees');
+      localStorage.removeItem('admins');
+      
+      // 빈 배열로 초기화
+      localStorage.setItem('employees', JSON.stringify([]));
+      localStorage.setItem('admins', JSON.stringify([]));
+      
+      // 모달 닫기
+      setShowDataResetModal(false);
+      setShowLargeDataWarning(false);
+      setEmployeeCount(0);
+      
+      // 데이터 새로고침
+      fetchEmployees();
+      alert('모든 직원 데이터가 초기화되었습니다.');
+    } catch (error) {
+      console.error('직원 데이터 초기화 중 오류 발생:', error);
+      alert('직원 데이터 초기화 중 오류가 발생했습니다.');
+    }
+  };
+  
+  // 엑셀 파일 처리 함수
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const data = e.target?.result;
+        const workbook = XLSX.read(data, { type: 'binary' });
+        const sheetName = workbook.SheetNames[0];
+        const worksheet = workbook.Sheets[sheetName];
+        const json = XLSX.utils.sheet_to_json(worksheet);
+        
+        processExcelData(json);
+      } catch (error) {
+        console.error('엑셀 파일 처리 중 오류 발생:', error);
+        setImportResults({
+          total: 0,
+          success: 0,
+          errors: ['엑셀 파일 처리 중 오류가 발생했습니다.']
+        });
+      }
+    };
+    
+    reader.onerror = () => {
+      setImportResults({
+        total: 0,
+        success: 0,
+        errors: ['파일을 읽는 중 오류가 발생했습니다.']
+      });
+    };
+    
+    reader.readAsBinaryString(file);
+  };
+  
+  // 엑셀 데이터 처리 함수
+  const processExcelData = (data: any[]) => {
+    if (!data || data.length === 0) {
+      setImportResults({
+        total: 0,
+        success: 0,
+        errors: ['데이터가 없거나 형식이 올바르지 않습니다.']
+      });
+      return;
+    }
+    
+    const existingEmployees = JSON.parse(localStorage.getItem('employees') || '[]');
+    const existingIds = new Set(existingEmployees.map((emp: Employee) => emp.employeeId));
+    
+    const results = {
+      total: data.length,
+      success: 0,
+      errors: [] as string[]
+    };
+    
+    const newEmployees: Employee[] = [];
+    
+    for (let i = 0; i < data.length; i++) {
+      const row = data[i];
+      try {
+        // 필수 필드 검사
+        if (!row.name || !row.position || !row.department) {
+          results.errors.push(`행 ${i + 2}: 이름, 직책, 부서는 필수 항목입니다.`);
+          continue;
+        }
+        
+        // 사원 ID 생성 또는 가져오기
+        let employeeId = row.employeeId;
+        if (!employeeId) {
+          // ID가 없는 경우 TCME + 4자리 숫자 형식으로 생성
+          const idNumber = String(Math.floor(1000 + Math.random() * 9000));
+          employeeId = `TCME${idNumber}`;
+        } else if (!employeeId.startsWith('TCME')) {
+          // TCME 형식이 아닌 경우 변환
+          employeeId = `TCME${String(employeeId).padStart(4, '0')}`;
+        }
+        
+        // ID 중복 검사
+        if (existingIds.has(employeeId)) {
+          results.errors.push(`행 ${i + 2}: 이미 존재하는 사원 ID입니다: ${employeeId}`);
+          continue;
+        }
+        
+        // 연락처 형식 처리
+        let contact = row.contact || '';
+        if (contact && !contact.includes('-')) {
+          if (contact.length === 11) {
+            contact = `${contact.slice(0, 3)}-${contact.slice(3, 7)}-${contact.slice(7)}`;
+          } else if (contact.length === 10) {
+            contact = `${contact.slice(0, 3)}-${contact.slice(3, 6)}-${contact.slice(6)}`;
+          }
+        }
+        
+        // 신규 사원 객체 생성
+        const newEmployee = {
+          id: existingEmployees.length + newEmployees.length + 1,
+          employeeId,
+          name: row.name,
+          position: row.position,
+          department: row.department,
+          contact: contact,
+          email: row.email || '',
+          hireDate: row.hireDate || format(new Date(), 'yyyy-MM-dd'),
+          value: row.name,
+          label: `${row.name} (${row.department} - ${row.position})`
+        };
+        
+        newEmployees.push(newEmployee);
+        existingIds.add(employeeId);
+        results.success++;
+      } catch (err) {
+        results.errors.push(`행 ${i + 2}: 처리 중 오류 발생`);
+      }
+    }
+    
+    // 로컬 스토리지에 저장
+    if (newEmployees.length > 0) {
+      const updatedEmployees = [...existingEmployees, ...newEmployees];
+      localStorage.setItem('employees', JSON.stringify(updatedEmployees));
+      
+      // 매니저인 경우 관리자 목록에 추가
+      const existingAdmins = JSON.parse(localStorage.getItem('admins') || '[]');
+      const newAdmins = newEmployees
+        .filter(emp => emp.position === '매니저')
+        .map(emp => ({
+          id: emp.id,
+          value: emp.name,
+          label: emp.name,
+          department: emp.department,
+          position: emp.position
+        }));
+      
+      if (newAdmins.length > 0) {
+        const updatedAdmins = [...existingAdmins, ...newAdmins];
+        localStorage.setItem('admins', JSON.stringify(updatedAdmins));
+      }
+      
+      // 데이터 새로고침
+      fetchEmployees();
+    }
+    
+    setImportResults(results);
+  };
+  
+  // 파일 업로드 트리거 함수
+  const triggerFileInput = () => {
+    if (fileInputRef.current) {
+      fileInputRef.current.click();
+    }
+  };
+  
+  // 엑셀 샘플 다운로드 함수
+  const downloadExcelTemplate = () => {
+    // 샘플 데이터 생성
+    const sampleData = [
+      { name: '홍길동', position: '매니저', department: '생산부', contact: '010-1234-5678', email: 'hong@example.com', hireDate: '2023-01-01' },
+      { name: '김철수', position: '사원', department: '품질관리부', contact: '010-8765-4321', email: 'kim@example.com', hireDate: '2023-02-15' }
+    ];
+    
+    // 워크시트 생성
+    const ws = XLSX.utils.json_to_sheet(sampleData);
+    
+    // 워크북 생성
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, '사원목록');
+    
+    // 파일 다운로드
+    XLSX.writeFile(wb, '사원목록_템플릿.xlsx');
+  };
+
+  return (
+    <div className="min-h-screen bg-gray-50">
+      <Navigation />
+      <main className="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
+        {/* 헤더 */}
+        <div className="bg-white shadow rounded-lg mb-6 p-6">
+          <h1 className="text-2xl font-bold text-gray-900">{t('employees.title')}</h1>
+          <p className="mt-1 text-sm text-gray-500">{t('employees.description')}</p>
+          
+          {/* 연동 정보 알림 */}
+          <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-md">
+            <div className="flex items-start">
+              <div className="flex-shrink-0">
+                <svg className="h-5 w-5 text-blue-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                  <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+                </svg>
+              </div>
+              <div className="ml-3 flex-1">
+                <p className="text-sm text-blue-700">
+                  이 사원관리창은 <span className="font-medium">설정 &gt; 이슈 데이터 관리 &gt; 부서 관리</span>와 연동되어 있습니다. 
+                  부서 목록을 추가하거나 수정하려면 설정 페이지에서 관리하세요.
+                </p>
+                <div className="mt-2">
+                  <a href="/settings" className="text-sm font-medium text-blue-600 hover:text-blue-500">
+                    설정 페이지로 이동 &rarr;
+                  </a>
+                </div>
+              </div>
+            </div>
+          </div>
+          
+          {/* 대량 데이터 경고 알림 */}
+          {showLargeDataWarning && (
+            <div className="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded-md">
+              <div className="flex items-start">
+                <div className="flex-shrink-0">
+                  <svg className="h-5 w-5 text-yellow-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                    <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.667-1.743-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" clipRule="evenodd" />
+                  </svg>
+                </div>
+                <div className="ml-3 flex-1">
+                  <h3 className="text-sm font-medium text-yellow-800">많은 양의 사원 데이터 감지됨</h3>
+                  <div className="mt-2 text-sm text-yellow-700">
+                    <p>
+                      현재 {employeeCount}명의 사원 데이터가 있습니다. 이는 자동 생성된 데이터일 수 있습니다.
+                      500명 이상의 데이터가 감지되어 알려드립니다. 실제 사용 중인 데이터라면 이 경고를 무시하셔도 됩니다.
+                    </p>
+                    <div className="mt-3">
+                      <button
+                        type="button"
+                        className="inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded-md text-white bg-yellow-600 hover:bg-yellow-700 focus:outline-none"
+                        onClick={() => setShowDataResetModal(true)}
+                      >
+                        모든 사원 데이터 초기화
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+        
+        {/* 초기화 확인 모달 */}
+        {showDataResetModal && (
+          <div className="fixed inset-0 z-50 overflow-y-auto">
+            <div className="flex items-center justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
+              <div className="fixed inset-0 transition-opacity" aria-hidden="true">
+                <div className="absolute inset-0 bg-gray-500 opacity-75" onClick={() => setShowDataResetModal(false)}></div>
+              </div>
+              <div className="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
+                <div className="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
+                  <div className="sm:flex sm:items-start">
+                    <div className="mx-auto flex-shrink-0 flex items-center justify-center h-12 w-12 rounded-full bg-red-100 sm:mx-0 sm:h-10 sm:w-10">
+                      <svg className="h-6 w-6 text-red-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                      </svg>
+                    </div>
+                    <div className="mt-3 text-center sm:mt-0 sm:ml-4 sm:text-left">
+                      <h3 className="text-lg leading-6 font-medium text-gray-900">모든 사원 데이터 초기화</h3>
+                      <div className="mt-2">
+                        <p className="text-sm text-gray-500">
+                          정말로 모든 사원 데이터를 초기화하시겠습니까? 이 작업은 되돌릴 수 없으며, 모든 사원 정보가 영구적으로 삭제됩니다.
+                        </p>
+                        <p className="mt-2 text-sm font-medium text-red-600">
+                          현재 {employeeCount}명의 사원 데이터가 삭제됩니다.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <div className="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
+                  <button
+                    type="button"
+                    className="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-red-600 text-base font-medium text-white hover:bg-red-700 focus:outline-none sm:ml-3 sm:w-auto sm:text-sm"
+                    onClick={handleDeleteAllEmployees}
+                  >
+                    초기화 확인
+                  </button>
+                  <button
+                    type="button"
+                    className="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm"
+                    onClick={() => setShowDataResetModal(false)}
+                  >
+                    취소
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+        
+        {/* 검색 및 액션 바 */}
+        <div className="bg-white shadow rounded-lg p-4 mb-6">
+          <div className="flex flex-col sm:flex-row items-center justify-between space-y-3 sm:space-y-0">
+            <div className="relative w-full sm:w-64">
+              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                <FiSearch className="text-gray-400" />
+              </div>
+              <input
+                type="text"
+                placeholder={t('employees.search')}
+                className="pl-10 pr-4 py-2 border border-gray-300 rounded-md w-full focus:ring-primary-500 focus:border-primary-500"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+              />
+            </div>
+            
+            <div className="flex space-x-2">
+              <button
+                type="button"
+                className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none"
+                onClick={() => setIsFilterOpen(!isFilterOpen)}
+              >
+                <FiFilter className="mr-2 h-4 w-4" />
+                {t('employees.filter')}
+              </button>
+              
+              <button
+                type="button"
+                className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none"
+                onClick={downloadExcelTemplate}
+              >
+                <FiDownload className="mr-2 h-4 w-4" />
+                엑셀 템플릿 다운로드
+              </button>
+              
+              <button
+                type="button"
+                className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-green-700 bg-white hover:bg-gray-50 focus:outline-none"
+                onClick={() => setShowExcelImportModal(true)}
+              >
+                <FiUpload className="mr-2 h-4 w-4" />
+                엑셀에서 가져오기
+              </button>
+              
+              <button
+                type="button"
+                className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 focus:outline-none"
+                onClick={() => setIsNewEmployeeModalOpen(true)}
+              >
+                <FiUserPlus className="mr-2 h-4 w-4" />
+                {t('employees.addNew')}
+              </button>
+              
+              {employees.length > 0 && (
+                <button
+                  type="button"
+                  className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-red-600 hover:bg-red-700 focus:outline-none"
+                  onClick={() => setShowDataResetModal(true)}
+                >
+                  <FiX className="mr-2 h-4 w-4" />
+                  모든 사원 삭제
+                </button>
+              )}
+            </div>
+          </div>
+          
+          {/* 파일 업로드 숨김 Input */}
+          <input 
+            type="file" 
+            ref={fileInputRef}
+            className="hidden"
+            accept=".xlsx,.xls"
+            onChange={handleFileUpload}
+          />
+          
+          {/* 필터 패널 */}
+          {isFilterOpen && (
+            <div className="fixed inset-0 z-10 overflow-y-auto">
+              <div className="flex items-center justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
+                <div className="fixed inset-0 transition-opacity" aria-hidden="true">
+                  <div className="absolute inset-0 bg-gray-500 opacity-75" onClick={() => setIsFilterOpen(false)}></div>
+                </div>
+                <div className="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
+                  <div className="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
+                    <h3 className="text-lg leading-6 font-medium text-gray-900 mb-4">필터 설정</h3>
+                    <div className="space-y-4">
+                      <div>
+                        <label htmlFor="positionFilter" className="block text-sm font-medium text-gray-700">직책</label>
+                        <select
+                          id="positionFilter"
+                          className="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm rounded-md"
+                          value={positionFilter}
+                          onChange={(e) => setPositionFilter(e.target.value)}
+                        >
+                          <option value="">전체</option>
+                          {positions.map((pos) => (
+                            <option key={pos} value={pos}>{pos}</option>
+                          ))}
+                        </select>
+                      </div>
+                      <div>
+                        <label htmlFor="departmentFilter" className="block text-sm font-medium text-gray-700">부서</label>
+                        <select
+                          id="departmentFilter"
+                          className="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm rounded-md"
+                          value={departmentFilter}
+                          onChange={(e) => setDepartmentFilter(e.target.value)}
+                        >
+                          <option value="">전체</option>
+                          {departmentItems.map((dept) => (
+                            <option key={dept.id} value={dept.value}>{dept.label}</option>
+                          ))}
+                        </select>
+                        <p className="mt-1 text-xs text-gray-500">
+                          부서 목록은 <a href="/settings" className="text-blue-600 hover:text-blue-500">설정 &gt; 이슈 데이터 관리 &gt; 부서 관리</a>에서 관리할 수 있습니다.
+                        </p>
+                      </div>
+                      <div>
+                        <label htmlFor="employeeIdFilter" className="block text-sm font-medium text-gray-700">사원 ID</label>
+                        <input
+                          type="text"
+                          id="employeeIdFilter"
+                          className="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm rounded-md"
+                          placeholder="예: EMP001"
+                          value={employeeIdFilter}
+                          onChange={(e) => setEmployeeIdFilter(e.target.value)}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                  <div className="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
+                    <button
+                      type="button"
+                      className="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-primary-600 text-base font-medium text-white hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 sm:ml-3 sm:w-auto sm:text-sm"
+                      onClick={applyFilters}
+                    >
+                      적용
+                    </button>
+                    <button
+                      type="button"
+                      className="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm"
+                      onClick={resetFilters}
+                    >
+                      초기화
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+        
+        {/* 엑셀 가져오기 모달 */}
+        {showExcelImportModal && (
+          <div className="fixed inset-0 z-10 overflow-y-auto">
+            <div className="flex items-center justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
+              <div className="fixed inset-0 transition-opacity" aria-hidden="true">
+                <div className="absolute inset-0 bg-gray-500 opacity-75" onClick={() => setShowExcelImportModal(false)}></div>
+              </div>
+              <div className="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
+                <div className="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
+                  <h3 className="text-lg leading-6 font-medium text-gray-900 mb-4">엑셀에서 사원 목록 가져오기</h3>
+                  
+                  {importResults.total > 0 ? (
+                    <div>
+                      <div className="mb-4 p-4 bg-gray-50 rounded-md">
+                        <p className="text-sm text-gray-700">
+                          <span className="font-medium">총 {importResults.total}개</span>의 항목 중 
+                          <span className="font-medium text-green-600"> {importResults.success}개</span> 
+                          가져오기 성공,
+                          <span className="font-medium text-red-600"> {importResults.errors.length}개</span> 오류
+                        </p>
+                        
+                        {importResults.errors.length > 0 && (
+                          <div className="mt-3">
+                            <p className="text-sm font-medium text-red-700">오류 내역:</p>
+                            <ul className="mt-1 text-sm text-red-600 list-disc list-inside">
+                              {importResults.errors.slice(0, 5).map((error, index) => (
+                                <li key={index}>{error}</li>
+                              ))}
+                              {importResults.errors.length > 5 && (
+                                <li>... 외 {importResults.errors.length - 5}개</li>
+                              )}
+                            </ul>
+                          </div>
+                        )}
+                      </div>
+                      
+                      <button
+                        type="button"
+                        className="w-full inline-flex justify-center items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 focus:outline-none"
+                        onClick={() => {
+                          setShowExcelImportModal(false);
+                          setImportResults({ total: 0, success: 0, errors: [] });
+                        }}
+                      >
+                        확인
+                      </button>
+                    </div>
+                  ) : (
+                    <>
+                      <div className="mb-4">
+                        <p className="text-sm text-gray-500">
+                          사원 목록이 있는 엑셀 파일을 업로드하면 시스템에 자동으로 등록됩니다. 
+                          올바른 형식으로 데이터를 준비해 주세요.
+                        </p>
+                        
+                        <div className="mt-4 p-4 bg-blue-50 rounded-md">
+                          <p className="text-sm text-blue-700 font-medium">엑셀 파일 형식 안내:</p>
+                          <ul className="mt-2 text-sm text-blue-600 list-disc list-inside">
+                            <li>필수 항목: 이름, 직책, 부서</li>
+                            <li>선택 항목: 사원ID, 연락처, 이메일, 입사일</li>
+                            <li>
+                              사원ID가 없는 경우 자동 생성됩니다. 
+                              (TCME + 4자리 숫자)
+                            </li>
+                          </ul>
+                        </div>
+                      </div>
+                      
+                      <div className="mt-6 flex flex-col space-y-3">
+                        <button
+                          type="button"
+                          className="inline-flex justify-center items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 focus:outline-none"
+                          onClick={triggerFileInput}
+                        >
+                          <FiUpload className="mr-2 h-4 w-4" />
+                          엑셀 파일 선택하기
+                        </button>
+                        
+                        <button
+                          type="button"
+                          className="inline-flex justify-center items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none"
+                          onClick={downloadExcelTemplate}
+                        >
+                          <FiDownload className="mr-2 h-4 w-4" />
+                          샘플 템플릿 다운로드
+                        </button>
+                      </div>
+                    </>
+                  )}
+                </div>
+                
+                {importResults.total === 0 && (
+                  <div className="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
+                    <button
+                      type="button"
+                      className="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none sm:mt-0 sm:w-auto sm:text-sm"
+                      onClick={() => setShowExcelImportModal(false)}
+                    >
+                      닫기
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+        
+        {/* 직원 테이블 */}
+        <div className="bg-white shadow overflow-hidden rounded-lg">
+          {loading ? (
+            <div className="px-6 py-12 text-center">
+              <p className="text-gray-500">{t('employees.loading')}</p>
+            </div>
+          ) : error ? (
+            <div className="px-6 py-12 text-center">
+              <p className="text-red-500">{error}</p>
+            </div>
+          ) : (
+            <>
+              <div className="overflow-x-auto">
+                <table className="min-w-full divide-y divide-gray-200">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        {t('employees.id')}
+                      </th>
+                      <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        {t('employees.name')}
+                      </th>
+                      <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        {t('employees.position')}
+                      </th>
+                      <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        {t('employees.department')}
+                      </th>
+                      <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        {t('employees.contact')}
+                      </th>
+                      <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        {t('employees.hireDate')}
+                      </th>
+                      <th scope="col" className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        {t('employees.actions')}
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    {employees.map((employee) => (
+                      <tr key={employee.id} className="hover:bg-gray-50">
+                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                          {employee.employeeId || `TCME${String(employee.id).padStart(4, '0')}`}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                          {employee.name}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          <span className={`px-2 py-1 text-xs rounded-full ${
+                            employee.position === '매니저' ? 'bg-blue-100 text-blue-800' : 'bg-gray-100 text-gray-800'
+                          }`}>
+                            {employee.position}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          {employee.department}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          {employee.contact}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          {formatDate(employee.hireDate)}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          <div className="flex space-x-3">
+                            <button 
+                              className="text-blue-600 hover:text-blue-900"
+                              onClick={() => {/* 편집 기능 */}}
+                            >
+                              {t('employees.edit')}
+                            </button>
+                            <button 
+                              className="text-red-600 hover:text-red-900"
+                              onClick={() => handleDeleteEmployee(employee.id)}
+                            >
+                              {t('employees.delete')}
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              
+              {employees.length === 0 && (
+                <div className="px-6 py-12 text-center border-t">
+                  <p className="text-gray-500">{t('employees.noResults')}</p>
+                </div>
+              )}
+              
+              {/* 페이지네이션 */}
+              {pagination.totalPages > 0 && (
+                <div className="px-6 py-4 bg-gray-50 border-t border-gray-200 flex items-center justify-between">
+                  <div className="flex-1 flex justify-between sm:hidden">
+                    <button
+                      onClick={() => handlePageChange(pagination.page - 1)}
+                      disabled={pagination.page === 1}
+                      className="relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {t('employees.prev')}
+                    </button>
+                    <button
+                      onClick={() => handlePageChange(pagination.page + 1)}
+                      disabled={pagination.page === pagination.totalPages}
+                      className="ml-3 relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {t('employees.next')}
+                    </button>
+                  </div>
+                  <div className="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
+                    <div>
+                      <p className="text-sm text-gray-700">
+                        {t('employees.total')}: <span className="font-medium">{pagination.total}</span> {t('employees.page')} <span className="font-medium">{pagination.page}</span> {t('employees.of')} <span className="font-medium">{pagination.totalPages}</span>
+                      </p>
+                    </div>
+                    <div>
+                      <nav className="relative z-0 inline-flex rounded-md shadow-sm -space-x-px" aria-label="Pagination">
+                        <button
+                          onClick={() => handlePageChange(pagination.page - 1)}
+                          disabled={pagination.page === 1}
+                          className="relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          <span className="sr-only">{t('employees.prev')}</span>
+                          <FiChevronLeft className="h-5 w-5" />
+                        </button>
+                        
+                        {/* 페이지 번호 */}
+                        {Array.from({ length: Math.min(5, pagination.totalPages) }).map((_, i) => {
+                          let pageNum;
+                          if (pagination.totalPages <= 5) {
+                            pageNum = i + 1;
+                          } else if (pagination.page <= 3) {
+                            pageNum = i + 1;
+                          } else if (pagination.page >= pagination.totalPages - 2) {
+                            pageNum = pagination.totalPages - 4 + i;
+                          } else {
+                            pageNum = pagination.page - 2 + i;
+                          }
+                          
+                          return (
+                            <button
+                              key={pageNum}
+                              onClick={() => handlePageChange(pageNum)}
+                              className={`relative inline-flex items-center px-4 py-2 border text-sm font-medium ${
+                                pagination.page === pageNum
+                                  ? 'z-10 bg-primary-50 border-primary-500 text-primary-600'
+                                  : 'bg-white border-gray-300 text-gray-500 hover:bg-gray-50'
+                              }`}
+                            >
+                              {pageNum}
+                            </button>
+                          );
+                        })}
+                        
+                        <button
+                          onClick={() => handlePageChange(pagination.page + 1)}
+                          disabled={pagination.page === pagination.totalPages}
+                          className="relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          <span className="sr-only">{t('employees.next')}</span>
+                          <FiChevronRight className="h-5 w-5" />
+                        </button>
+                      </nav>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </>
+          )}
+        </div>
+        
+        {/* 신규 사원 등록 모달 */}
+        {isNewEmployeeModalOpen && (
+          <div className="fixed inset-0 z-10 overflow-y-auto">
+            <div className="flex items-center justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
+              <div className="fixed inset-0 transition-opacity" aria-hidden="true">
+                <div className="absolute inset-0 bg-gray-500 opacity-75" onClick={() => setIsNewEmployeeModalOpen(false)}></div>
+              </div>
+              <div className="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
+                <form onSubmit={handleSubmitNewEmployee}>
+                  <div className="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
+                    <h3 className="text-lg leading-6 font-medium text-gray-900 mb-4">신규 사원 등록</h3>
+                    <div className="space-y-4">
+                      <div>
+                        <label htmlFor="employeeIdNumber" className="block text-sm font-medium text-gray-700">사원 ID 번호 (4자리) *</label>
+                        <div className="mt-1 flex rounded-md shadow-sm">
+                          <span className="inline-flex items-center px-3 rounded-l-md border border-r-0 border-gray-300 bg-gray-50 text-gray-500 text-sm">
+                            TCME
+                          </span>
+                          <input
+                            type="text"
+                            id="employeeIdNumber"
+                            name="employeeIdNumber"
+                            maxLength={4}
+                            placeholder="0001"
+                            className={`flex-1 min-w-0 block w-full px-3 py-2 rounded-none rounded-r-md border-gray-300 focus:ring-primary-500 focus:border-primary-500 sm:text-sm ${formErrors.employeeIdNumber ? 'border-red-300' : ''}`}
+                            value={newEmployee.employeeIdNumber}
+                            onChange={handleNewEmployeeChange}
+                          />
+                        </div>
+                        {formErrors.employeeIdNumber && <p className="mt-1 text-sm text-red-600">{formErrors.employeeIdNumber}</p>}
+                      </div>
+                      <div>
+                        <label htmlFor="name" className="block text-sm font-medium text-gray-700">이름 *</label>
+                        <input
+                          type="text"
+                          id="name"
+                          name="name"
+                          className={`mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm rounded-md ${formErrors.name ? 'border-red-300' : ''}`}
+                          value={newEmployee.name}
+                          onChange={handleNewEmployeeChange}
+                        />
+                        {formErrors.name && <p className="mt-1 text-sm text-red-600">{formErrors.name}</p>}
+                      </div>
+                      <div>
+                        <label htmlFor="position" className="block text-sm font-medium text-gray-700">직책 *</label>
+                        <select
+                          id="position"
+                          name="position"
+                          className={`mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm rounded-md ${formErrors.position ? 'border-red-300' : ''}`}
+                          value={newEmployee.position}
+                          onChange={handleNewEmployeeChange}
+                        >
+                          <option value="">선택하세요</option>
+                          {positions.map((pos) => (
+                            <option key={pos} value={pos}>{pos}</option>
+                          ))}
+                        </select>
+                        {formErrors.position && <p className="mt-1 text-sm text-red-600">{formErrors.position}</p>}
+                      </div>
+                      <div>
+                        <label htmlFor="department" className="block text-sm font-medium text-gray-700">부서 *</label>
+                        <select
+                          id="department"
+                          name="department"
+                          className={`mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm rounded-md ${formErrors.department ? 'border-red-300' : ''}`}
+                          value={newEmployee.department}
+                          onChange={handleNewEmployeeChange}
+                        >
+                          <option value="">선택하세요</option>
+                          {departmentItems.map((dept) => (
+                            <option key={dept.id} value={dept.value}>{dept.label}</option>
+                          ))}
+                        </select>
+                        {formErrors.department && <p className="mt-1 text-sm text-red-600">{formErrors.department}</p>}
+                      </div>
+                      <div>
+                        <label htmlFor="contact" className="block text-sm font-medium text-gray-700">연락처 *</label>
+                        <input
+                          type="text"
+                          id="contact"
+                          name="contact"
+                          className={`mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm rounded-md ${formErrors.contact ? 'border-red-300' : ''}`}
+                          placeholder="01012345678 또는 010-1234-5678"
+                          value={newEmployee.contact}
+                          onChange={handleNewEmployeeChange}
+                        />
+                        {formErrors.contact && <p className="mt-1 text-sm text-red-600">{formErrors.contact}</p>}
+                      </div>
+                      <div>
+                        <label htmlFor="email" className="block text-sm font-medium text-gray-700">이메일</label>
+                        <input
+                          type="email"
+                          id="email"
+                          name="email"
+                          className={`mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm rounded-md ${formErrors.email ? 'border-red-300' : ''}`}
+                          placeholder="example@example.com"
+                          value={newEmployee.email}
+                          onChange={handleNewEmployeeChange}
+                        />
+                        {formErrors.email && <p className="mt-1 text-sm text-red-600">{formErrors.email}</p>}
+                      </div>
+                      <div>
+                        <label htmlFor="hireDate" className="block text-sm font-medium text-gray-700">입사일 *</label>
+                        <input
+                          type="date"
+                          id="hireDate"
+                          name="hireDate"
+                          className={`mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm rounded-md ${formErrors.hireDate ? 'border-red-300' : ''}`}
+                          value={newEmployee.hireDate}
+                          onChange={handleNewEmployeeChange}
+                        />
+                        {formErrors.hireDate && <p className="mt-1 text-sm text-red-600">{formErrors.hireDate}</p>}
+                      </div>
+                    </div>
+                  </div>
+                  <div className="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
+                    <button
+                      type="submit"
+                      className="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-primary-600 text-base font-medium text-white hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 sm:ml-3 sm:w-auto sm:text-sm"
+                    >
+                      등록
+                    </button>
+                    <button
+                      type="button"
+                      className="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm"
+                      onClick={() => setIsNewEmployeeModalOpen(false)}
+                    >
+                      취소
+                    </button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          )}
+        </div>
+      </main>
+    </div>
+  );
+} 
