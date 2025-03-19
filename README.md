@@ -24,8 +24,8 @@
 
 1. 저장소 클론
 ```bash
-git clone https://github.com/yourusername/inductor-factory-system.git
-cd inductor-factory-system
+git clone https://github.com/coilmastergpt/last.git
+cd last
 ```
 
 2. 의존성 설치
@@ -58,4 +58,4 @@ http://localhost:3000
 - **IssueCategory**: 문제 카테고리 (설비, 관리, 원자재 등)
 - **Issue**: 문제 정보 (제목, 설명, 상태, 우선순위 등)
 - **Media**: 이슈 관련 미디어 파일 (사진, 동영상)
-- **Comment**: 이슈에 대한 코멘트 
+- **Comment**: 이슈에 대한 코멘트
