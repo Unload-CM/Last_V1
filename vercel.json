@@ -13,5 +13,10 @@
     "NEXTAUTH_SECRET": "84d67aeaff4834ad58d65adc4f5cde4d",
     "NODE_ENV": "production"
   },
-  "installCommand": "npm install"
+  "installCommand": "npm install",
+  "build": {
+    "env": {
+      "DATABASE_URL": "postgresql://postgres:1234@db.unwvnodolgwrgiojrswp.supabase.co:5432/postgres"
+    }
+  }
 } 

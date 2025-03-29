@@ -7,7 +7,11 @@ const nextConfig = {
     serverComponentsExternalPackages: ['@prisma/client', 'bcrypt'],
     serverActions: {
       allowedOrigins: ['localhost:3000', 'last-v1.vercel.app']
-    }
+    },
+    // 정적 페이지 생성 비활성화
+    appDir: true,
+    // 동적 서버 사용 허용
+    esmExternals: 'loose'
   },
   
   // 환경 변수 설정
@@ -26,6 +30,19 @@ const nextConfig = {
   
   images: {
     domains: ['unwvnodolgwrgiojrswp.supabase.co']
+  },
+
+  // 동적 서버 사용 허용 (headers, cookies, request 객체 등)
+  modularizeImports: {
+    'lodash-es': {
+      transform: 'lodash-es/{{member}}',
+    },
+    '@mui/material': {
+      transform: '@mui/material/{{member}}',
+    },
+    '@mui/icons-material': {
+      transform: '@mui/icons-material/{{member}}',
+    },
   }
 };
 
