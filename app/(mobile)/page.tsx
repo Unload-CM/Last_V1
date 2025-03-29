@@ -1,7 +1,9 @@
-import { useTranslation } from 'react-i18next';
+'use client';
+
+import { useEffect, useState } from 'react';
 import { MONTHS } from '../constants/months';
-import { cookies } from 'next/headers';
-import prisma from '@/lib/prisma';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { BarChart2 } from 'lucide-react';
 import { 
   BarChart, 
   Bar, 
@@ -11,35 +13,55 @@ import {
   Legend,
   ResponsiveContainer 
 } from 'recharts';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { BarChart2 } from 'lucide-react';
 
-export default async function MobileDashboard() {
-  const { t, i18n } = useTranslation();
-  const language = cookies().get('language')?.value || 'en';
-  
-  // 현재 날짜 기준으로 이번 달의 시작일과 현재 날짜를 구합니다
-  const now = new Date();
-  const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-  startOfMonth.setHours(0, 0, 0, 0);
-  
-  const endOfDay = new Date(now);
-  endOfDay.setHours(23, 59, 59, 999);
-  
-  // API를 통해 대시보드 데이터를 가져옵니다
-  const response = await fetch(`/api/dashboard?from=${startOfMonth.toISOString()}&to=${endOfDay.toISOString()}&lang=${language}`, {
-    cache: 'no-store',
-    headers: {
-      'Cache-Control': 'no-cache, no-store, must-revalidate',
-      'Pragma': 'no-cache'
+export default function MobileDashboard() {
+  const [language, setLanguage] = useState('ko');
+  const [dashboardData, setDashboardData] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    async function fetchData() {
+      try {
+        // 현재 날짜 기준으로 이번 달의 시작일과 현재 날짜를 구합니다
+        const now = new Date();
+        const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+        startOfMonth.setHours(0, 0, 0, 0);
+        
+        const endOfDay = new Date(now);
+        endOfDay.setHours(23, 59, 59, 999);
+        
+        // 쿠키에서 언어 설정 가져오기
+        const cookieLanguage = document.cookie
+          .split('; ')
+          .find(row => row.startsWith('language='))
+          ?.split('=')[1] || 'ko';
+        
+        setLanguage(cookieLanguage);
+        
+        // API를 통해 대시보드 데이터를 가져옵니다
+        const response = await fetch(`/api/dashboard?from=${startOfMonth.toISOString()}&to=${endOfDay.toISOString()}&lang=${cookieLanguage}`);
+
+        if (!response.ok) {
+          throw new Error('대시보드 데이터를 불러오는데 실패했습니다');
+        }
+
+        const data = await response.json();
+        setDashboardData(data);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : '알 수 없는 오류가 발생했습니다');
+        console.error('Error fetching dashboard data:', err);
+      } finally {
+        setLoading(false);
+      }
     }
-  });
 
-  if (!response.ok) {
-    throw new Error('Failed to load dashboard data');
-  }
+    fetchData();
+  }, []);
 
-  const dashboardData = await response.json();
+  if (loading) return <div className="p-4">로딩 중...</div>;
+  if (error) return <div className="p-4 text-red-500">오류: {error}</div>;
+  if (!dashboardData) return <div className="p-4">데이터가 없습니다</div>;
 
   const monthlyData = dashboardData.monthlyIssueCreation ? 
     dashboardData.monthlyIssueCreation.map((item: any) => ({
@@ -68,7 +90,9 @@ export default async function MobileDashboard() {
                   <YAxis 
                     allowDecimals={false}
                     domain={[0, (dataMax: number) => Math.ceil(dataMax)]}
-                    ticks={Array.from({ length: Math.ceil(Math.max(...monthlyData.map(item => item.issues))) + 1 }, (_, i) => i)}
+                    ticks={monthlyData.length > 0 
+                      ? Array.from({ length: Math.ceil(Math.max(...monthlyData.map(item => item.issues))) + 1 }, (_, i) => i)
+                      : [0, 1]}
                   />
                   <Tooltip />
                   <Legend />
