@@ -292,8 +292,8 @@ const Dashboard = () => {
     <div className="container mx-auto py-6">
       <div className="mb-6 flex flex-col sm:flex-row items-start sm:items-center justify-between">
         <h1 className="text-3xl font-bold mb-4 sm:mb-0">{t('dashboard.title')}</h1>
-        <DateRangeFilter 
-          onFilterChange={handleDateFilterChange} 
+        <DateRangeFilter
+          onFilterChange={handleDateFilterChange}
           initialFromDate={dateFilter.from}
           initialToDate={dateFilter.to}
         />
@@ -401,4 +401,72 @@ const Dashboard = () => {
                   >
                     {dashboardData?.issuesByPriority?.map((entry: any, index: number) => (
                       <Cell 
-                        key={`
+                        key={`cell-${index}`} 
+                        fill={PRIORITY_COLORS[entry.priority] || COLORS[index % COLORS.length]} 
+                      />
+                    ))}
+                  </Pie>
+                  <Tooltip 
+                    formatter={(value, name) => [value, name]}
+                  />
+                  <Legend />
+                </PieChart>
+              </ResponsiveContainer>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* 랭킹 정보 */}
+        <Card>
+          <CardHeader className="pb-0">
+            <CardTitle className="flex items-center text-lg">
+              <AlertCircle className="h-5 w-5 mr-2" />
+              {t('dashboard.rankingInfo')}
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 gap-2">
+              {/* 상위 코멘터 */}
+              <div className="mt-2">
+                <h3 className="text-md font-medium mb-2 flex items-center">
+                  <MessageSquare className="h-4 w-4 mr-1" /> {t('dashboard.topCommenters')}
+                </h3>
+                <TopCommenters 
+                  data={rankingData.topCommenters} 
+                  isLoading={rankingData.isLoading}
+                />
+              </div>
+              
+              {/* 상위 이슈 발견자 */}
+              <div className="mt-4">
+                <h3 className="text-md font-medium mb-2 flex items-center">
+                  <SearchIcon className="h-4 w-4 mr-1" /> {t('dashboard.topIssueFinders')}
+                </h3>
+                <TopIssueFinders 
+                  data={rankingData.topIssueFinders} 
+                  isLoading={rankingData.isLoading}
+                />
+              </div>
+              
+              {/* 상위 이슈 해결자 */}
+              <div className="mt-4">
+                <h3 className="text-md font-medium mb-2 flex items-center">
+                  <CheckCircle className="h-4 w-4 mr-1" /> {t('dashboard.topIssueResolvers')}
+                </h3>
+                <TopIssueResolvers 
+                  data={rankingData.topIssueResolvers} 
+                  isLoading={rankingData.isLoading}
+                />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    </div>
+  );
+};
+
+// 다이나믹 임포트로 서버 컴포넌트 문제 방지
+export default dynamic(() => Promise.resolve(Dashboard), {
+  ssr: false,
+});
