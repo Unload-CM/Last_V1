@@ -12,28 +12,6 @@ const nextConfig = {
   env: {
     NEXTAUTH_URL: 'http://192.168.1.33:3331',
     NEXT_PUBLIC_LOGOUT_REDIRECT_URL: 'http://192.168.1.33:3331/admin-login',
-    // NEXTAUTH_URL: 'http://192.168.1.33:3333',
-    //NEXT_PUBLIC_LOGOUT_REDIRECT_URL: 'http://192.168.1.33:3333/admin-login',
-    // 여기에 필요한 다른 환경 변수 추가
-  },
-  
-  // 트랜스파일러 설정
-  transpilePackages: [],
-  
-  // API 경로 재작성 규칙
-  async rewrites() {
-    return [
-      // 여기에 필요한 rewrite 규칙 추가
-    ];
-  },
-
-  // 개발 환경 설정
-  webpack: (config, { dev, isServer }) => {
-    // 개발 환경에서만 적용될 설정
-    if (dev) {
-      config.devtool = 'eval-source-map';
-    }
-    return config;
   },
 };
 
