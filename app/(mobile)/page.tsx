@@ -49,20 +49,71 @@ export default function MobileDashboard() {
   const [monthlyData, setMonthlyData] = useState<ChartDataType>([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    // 쿠키에서 언어 설정 가져오기
-    const getCookieLanguage = () => {
-      if (typeof document !== 'undefined') {
-        return document.cookie
-          .split('; ')
-          .find(row => row.startsWith('language='))
-          ?.split('=')[1] || 'ko';
+  // 쿠키에서 언어 설정 가져오기
+  const getCookieLanguage = () => {
+    if (typeof window !== 'undefined' && document) {
+      return document.cookie
+        .split('; ')
+        .find(row => row.startsWith('language='))
+        ?.split('=')[1] || 'ko';
+    }
+    return 'ko';
+  };
+
+  // 월 이름 가져오기 함수
+  const getMonthName = (monthIndex: number, language: string) => {
+    if (language === 'ko') return MONTHS_KO[monthIndex-1];
+    if (language === 'th') return MONTHS_TH[monthIndex-1];
+    return MONTHS_EN[monthIndex-1];
+  };
+
+  // 샘플 데이터 준비
+  const prepareSampleData = (lang: string) => {
+    return SAMPLE_MONTHLY_DATA.map(item => ({
+      name: getMonthName(item.month, lang),
+      issues: item.count
+    }));
+  };
+
+  // 데이터 로드 함수
+  const fetchDashboardData = async (lang: string) => {
+    try {
+      const now = new Date();
+      const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+      const endOfDay = new Date(now);
+      
+      const response = await fetch(
+        `/api/dashboard?from=${startOfMonth.toISOString()}&to=${endOfDay.toISOString()}&lang=${lang}`,
+        { 
+          headers: { 'Cache-Control': 'no-cache, no-store' },
+          cache: 'no-store'
+        }
+      );
+      
+      if (response.ok) {
+        const data = await response.json();
+        
+        if (data.monthlyIssueCreation && data.monthlyIssueCreation.length > 0) {
+          return data.monthlyIssueCreation.map((item: {month: number; count: number}) => ({
+            name: getMonthName(item.month, lang),
+            issues: item.count
+          }));
+        }
       }
-      return 'ko';
-    };
-    
+      return null;
+    } catch (error) {
+      console.error('대시보드 데이터 로드 중 오류:', error);
+      return null;
+    }
+  };
+
+  useEffect(() => {
+    // 언어 설정 가져오기
     const lang = getCookieLanguage();
     setLanguage(lang);
+    
+    // 샘플 데이터로 기본 설정
+    setMonthlyData(prepareSampleData(lang));
     
     // 인증 상태에 따라 처리
     if (status === 'loading') return;
@@ -74,52 +125,15 @@ export default function MobileDashboard() {
     
     // 인증된 경우 데이터 로드
     if (status === 'authenticated') {
-      // 샘플 데이터 가공 (언어에 맞게)
-      const getMonthName = (monthIndex: number, language: string) => {
-        if (language === 'ko') return MONTHS_KO[monthIndex-1];
-        if (language === 'th') return MONTHS_TH[monthIndex-1];
-        return MONTHS_EN[monthIndex-1];
-      };
-      
-      const processedData = SAMPLE_MONTHLY_DATA.map(item => ({
-        name: getMonthName(item.month, lang),
-        issues: item.count
-      }));
-      
-      setMonthlyData(processedData);
-      
-      // API 데이터 가져오기 시도
-      const fetchData = async () => {
-        try {
-          const now = new Date();
-          const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-          const endOfDay = new Date(now);
-          
-          const response = await fetch(
-            `/api/dashboard?from=${startOfMonth.toISOString()}&to=${endOfDay.toISOString()}&lang=${lang}`,
-            { headers: { 'Cache-Control': 'no-cache, no-store' } }
-          );
-          
-          if (response.ok) {
-            const data = await response.json();
-            
-            if (data.monthlyIssueCreation && data.monthlyIssueCreation.length > 0) {
-              const apiData = data.monthlyIssueCreation.map((item: {month: number; count: number}) => ({
-                name: getMonthName(item.month, lang),
-                issues: item.count
-              }));
-              setMonthlyData(apiData);
-            }
-          }
-        } catch (error) {
-          console.error('대시보드 데이터 로드 중 오류:', error);
-          // 이미 샘플 데이터를 설정했으므로 추가 조치 불필요
-        } finally {
-          setLoading(false);
+      const loadData = async () => {
+        const apiData = await fetchDashboardData(lang);
+        if (apiData) {
+          setMonthlyData(apiData);
         }
+        setLoading(false);
       };
       
-      fetchData();
+      loadData();
     }
   }, [status]);
 

@@ -30,7 +30,8 @@ const nextConfig = {
   
   experimental: {
     serverComponentsExternalPackages: ['@prisma/client', 'bcrypt'],
-    esmExternals: 'loose'
+    esmExternals: 'loose',
+    serverActions: true  // 서버 액션 활성화
   },
   
   // 정적 생성 비활성화 및 서버 측 렌더링 활성화
@@ -52,9 +53,11 @@ const nextConfig = {
   env: {
     DATABASE_URL: process.env.DATABASE_URL,
     NEXTAUTH_SECRET: process.env.NEXTAUTH_SECRET,
+    NEXTAUTH_URL: process.env.NEXTAUTH_URL || 'https://last-v1.vercel.app',
     NEXT_PUBLIC_SUPABASE_URL: process.env.NEXT_PUBLIC_SUPABASE_URL,
     NEXT_PUBLIC_SUPABASE_ANON_KEY: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
-    NEXT_PUBLIC_SITE_URL: process.env.NEXT_PUBLIC_SITE_URL || 'https://last-v1.vercel.app'
+    NEXT_PUBLIC_SITE_URL: process.env.NEXT_PUBLIC_SITE_URL || 'https://last-v1.vercel.app',
+    NEXT_PUBLIC_BASE_URL: process.env.NEXT_PUBLIC_BASE_URL || 'https://last-v1.vercel.app'
   }
 };
 
