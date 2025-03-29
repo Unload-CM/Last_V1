@@ -8,14 +8,6 @@ const nextConfig = {
     domains: ['localhost', '192.168.1.33'],
   },
   
-  // 서버 설정
-  server: {
-    // 모든 IPv4 주소에서 접속 허용
-    host: '0.0.0.0',
-    // port: 3331,  // 개발 환경용 포트
-    port: 3333,  // 운영 환경용 포트
-  },
-  
   // 환경 변수 설정
   env: {
     NEXTAUTH_URL: 'http://192.168.1.33:3331',
