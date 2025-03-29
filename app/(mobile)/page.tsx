@@ -15,22 +15,11 @@ import {
 } from 'recharts';
 import { Skeleton } from '@/components/ui/skeleton';
 import LoginForm from '@/components/LoginForm';
-import { MONTHS } from '../constants/months';
 
-// 대시보드 데이터 타입 정의
-interface DashboardData {
-  issueSummary?: {
-    open: number;
-    inProgress: number;
-    resolved: number;
-    total: number;
-  };
-  monthlyIssueCreation?: Array<{
-    month: number;
-    count: number;
-  }>;
-  // 필요한 경우 다른 데이터 속성 추가
-}
+// 간소화된 월 데이터 - 언어별 월 이름
+const MONTHS_KO = ['1월', '2월', '3월', '4월', '5월', '6월', '7월', '8월', '9월', '10월', '11월', '12월'];
+const MONTHS_TH = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.'];
+const MONTHS_EN = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
 // 샘플 데이터 - 데이터베이스 접속이 안될 경우 대체
 const SAMPLE_MONTHLY_DATA = [
@@ -48,74 +37,88 @@ const SAMPLE_MONTHLY_DATA = [
   { month: 12, count: 10 }
 ];
 
+// 데이터 타입 정의
+type ChartDataType = {
+  name: string;
+  issues: number;
+}[];
+
 export default function MobileDashboard() {
   const { data: session, status } = useSession();
   const [language, setLanguage] = useState('ko');
-  const [dashboardData, setDashboardData] = useState<DashboardData>({
-    monthlyIssueCreation: SAMPLE_MONTHLY_DATA
-  });
+  const [monthlyData, setMonthlyData] = useState<ChartDataType>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    // 인증 상태 체크
+    // 쿠키에서 언어 설정 가져오기
+    const getCookieLanguage = () => {
+      if (typeof document !== 'undefined') {
+        return document.cookie
+          .split('; ')
+          .find(row => row.startsWith('language='))
+          ?.split('=')[1] || 'ko';
+      }
+      return 'ko';
+    };
+    
+    const lang = getCookieLanguage();
+    setLanguage(lang);
+    
+    // 인증 상태에 따라 처리
     if (status === 'loading') return;
     
-    // 로그인하지 않은 사용자는 데이터를 로드하지 않음
     if (status === 'unauthenticated') {
       setLoading(false);
       return;
     }
     
-    const fetchData = async () => {
-      try {
-        // 현재 날짜 기준으로 이번 달의 시작일과 현재 날짜를 구합니다
-        const now = new Date();
-        const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-        startOfMonth.setHours(0, 0, 0, 0);
-        
-        const endOfDay = new Date(now);
-        endOfDay.setHours(23, 59, 59, 999);
-        
-        // 쿠키에서 언어 설정 가져오기
-        const cookieLanguage = document.cookie
-          .split('; ')
-          .find(row => row.startsWith('language='))
-          ?.split('=')[1] || 'ko';
-        
-        setLanguage(cookieLanguage);
-        
-        try {
-          // API를 통해 대시보드 데이터를 가져옵니다
-          const response = await fetch(`/api/dashboard?from=${startOfMonth.toISOString()}&to=${endOfDay.toISOString()}&lang=${cookieLanguage}`, {
-            headers: {
-              'Cache-Control': 'no-cache, no-store'
-            }
-          });
-
-          if (!response.ok) {
-            // API 오류 발생 시 샘플 데이터 사용
-            console.error('대시보드 데이터를 불러오는데 실패했습니다, 샘플 데이터 사용');
-            // 기존 샘플 데이터를 유지하고 로딩 상태만 변경합니다
-            setLoading(false);
-            return;
-          }
-
-          const data = await response.json();
-          setDashboardData(data);
-        } catch (fetchError) {
-          console.error('API 호출 중 오류, 샘플 데이터 사용:', fetchError);
-          // API 호출 오류 시도 기존 샘플 데이터를 유지합니다
-        }
-      } catch (err) {
-        setError(err instanceof Error ? err.message : '알 수 없는 오류가 발생했습니다');
-        console.error('Error fetching dashboard data:', err);
-      } finally {
-        setLoading(false);
-      }
-    };
-
+    // 인증된 경우 데이터 로드
     if (status === 'authenticated') {
+      // 샘플 데이터 가공 (언어에 맞게)
+      const getMonthName = (monthIndex: number, language: string) => {
+        if (language === 'ko') return MONTHS_KO[monthIndex-1];
+        if (language === 'th') return MONTHS_TH[monthIndex-1];
+        return MONTHS_EN[monthIndex-1];
+      };
+      
+      const processedData = SAMPLE_MONTHLY_DATA.map(item => ({
+        name: getMonthName(item.month, lang),
+        issues: item.count
+      }));
+      
+      setMonthlyData(processedData);
+      
+      // API 데이터 가져오기 시도
+      const fetchData = async () => {
+        try {
+          const now = new Date();
+          const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+          const endOfDay = new Date(now);
+          
+          const response = await fetch(
+            `/api/dashboard?from=${startOfMonth.toISOString()}&to=${endOfDay.toISOString()}&lang=${lang}`,
+            { headers: { 'Cache-Control': 'no-cache, no-store' } }
+          );
+          
+          if (response.ok) {
+            const data = await response.json();
+            
+            if (data.monthlyIssueCreation && data.monthlyIssueCreation.length > 0) {
+              const apiData = data.monthlyIssueCreation.map((item: {month: number; count: number}) => ({
+                name: getMonthName(item.month, lang),
+                issues: item.count
+              }));
+              setMonthlyData(apiData);
+            }
+          }
+        } catch (error) {
+          console.error('대시보드 데이터 로드 중 오류:', error);
+          // 이미 샘플 데이터를 설정했으므로 추가 조치 불필요
+        } finally {
+          setLoading(false);
+        }
+      };
+      
       fetchData();
     }
   }, [status]);
@@ -152,30 +155,8 @@ export default function MobileDashboard() {
       </div>
     );
   }
-  
-  if (error) {
-    return (
-      <div className="container mx-auto p-4">
-        <Card className="w-full">
-          <CardHeader className="px-4 py-3">
-            <CardTitle className="text-lg text-red-500">오류 발생</CardTitle>
-          </CardHeader>
-          <CardContent className="px-4 pb-4">
-            {error}
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
 
-  // 월별 데이터 가공
-  const monthlyData = dashboardData.monthlyIssueCreation ? 
-    dashboardData.monthlyIssueCreation.map((item) => ({
-      name: MONTHS[language as keyof typeof MONTHS]?.[item.month - 1] || `Month ${item.month}`,
-      issues: item.count,
-    }))
-  : [];
-
+  // 최종 UI 렌더링
   return (
     <div className="container mx-auto py-1">
       <div className="grid gap-2 mt-1">
@@ -193,10 +174,7 @@ export default function MobileDashboard() {
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={monthlyData}>
                   <XAxis dataKey="name" />
-                  <YAxis 
-                    allowDecimals={false}
-                    domain={[0, (dataMax: number) => Math.max(1, Math.ceil(dataMax))]}
-                  />
+                  <YAxis allowDecimals={false} />
                   <Tooltip />
                   <Legend />
                   <Bar 
