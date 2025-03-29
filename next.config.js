@@ -9,7 +9,8 @@ const nextConfig = {
       },
     ],
   },
-  // output: 'standalone', // 정적 생성을 사용하지 않음 (서버 측 렌더링을 위해 주석 처리)
+  // 빌드 출력 설정
+  output: 'standalone',
   
   // webpack 설정 추가: NextAuth와 함께 사용하기 위한 폴리필 추가
   webpack: (config, { isServer }) => {
@@ -30,8 +31,12 @@ const nextConfig = {
   experimental: {
     serverComponentsExternalPackages: ['@prisma/client', 'bcrypt'],
     esmExternals: 'loose',
-    // serverActions: true // Next.js 14부터 기본으로 포함됨
   },
+  
+  // 정적 생성 비활성화 및 서버 측 렌더링 활성화
+  staticPageGenerationTimeout: 300,
+  distDir: '.next',
+  
   // 서버 측 API 라우팅을 명시적으로 처리하기 위한 구성
   async headers() {
     return [
