@@ -18,5 +18,11 @@
     "env": {
       "DATABASE_URL": "postgresql://postgres:1234@db.unwvnodolgwrgiojrswp.supabase.co:5432/postgres"
     }
+  },
+  "functions": {
+    "app/api/**/*.js": {
+      "memory": 1024,
+      "maxDuration": 10
+    }
   }
 } 

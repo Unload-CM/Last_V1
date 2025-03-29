@@ -8,8 +8,6 @@ const nextConfig = {
     serverActions: {
       allowedOrigins: ['localhost:3000', 'last-v1.vercel.app']
     },
-    // 정적 페이지 생성 비활성화
-    appDir: true,
     // 동적 서버 사용 허용
     esmExternals: 'loose'
   },
@@ -25,7 +23,7 @@ const nextConfig = {
     NEXTAUTH_SECRET: process.env.NEXTAUTH_SECRET || "84d67aeaff4834ad58d65adc4f5cde4d"
   },
   
-  // 정적 내보내기 비활성화 (서버 사이드 렌더링으로 실행)
+  // 서버 사이드 렌더링으로 실행
   output: 'standalone',
   
   images: {

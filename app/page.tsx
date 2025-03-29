@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef, useCallback } from 'react';
+import dynamic from 'next/dynamic';
 import { useRouter } from 'next/navigation';
 import { 
   Card, 
@@ -10,16 +11,17 @@ import {
   CardDescription 
 } from '@/components/ui/card';
 import { 
+  ResponsiveContainer,
   BarChart, 
   Bar, 
   PieChart, 
   Pie, 
   Cell, 
-  ResponsiveContainer, 
   XAxis, 
   YAxis, 
   Tooltip, 
-  Legend 
+  Legend,
+  CartesianGrid 
 } from 'recharts';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
@@ -32,7 +34,8 @@ import {
   BarChart2,
   PieChart as PieChartIcon,
   MessageSquare,
-  CheckCircle
+  CheckCircle,
+  Search as SearchIcon
 } from 'lucide-react';
 import TopCommenters from '@/components/dashboard/TopCommenters';
 import TopIssueFinders from '@/components/dashboard/TopIssueFinders';
@@ -86,7 +89,8 @@ const PRIORITY_COLORS = {
   'ต่ำ': '#22c55e',     // bg-green-500
 };
 
-export default function Dashboard() {
+// 대시보드 컴포넌트
+const Dashboard = () => {
   const { t, language } = useTranslation();
   const router = useRouter();
   const [dashboardData, setDashboardData] = useState<any | null>(null);
@@ -158,7 +162,12 @@ export default function Dashboard() {
         params.append('to', toDate.toISOString());
         params.append('lang', language);
         
-        const response = await fetch(`/api/dashboard?${params.toString()}`);
+        const response = await fetch(`/api/dashboard?${params.toString()}`, {
+          headers: {
+            'Cache-Control': 'no-cache, no-store',
+            'Pragma': 'no-cache'
+          }
+        });
         
         if (!response.ok) {
           throw new Error('데이터를 불러오는데 실패했습니다.');
@@ -196,7 +205,7 @@ export default function Dashboard() {
   };
      
   // 랭킹 데이터 로드 (한 번만 실행)
-  async function loadRankingData(startDate?: Date, endDate?: Date) {
+  const loadRankingData = async (startDate?: Date, endDate?: Date) => {
     try {
       setRankingData(prev => ({ ...prev, isLoading: true }));
       
@@ -216,16 +225,20 @@ export default function Dashboard() {
       // 언어 파라미터 추가
       const langParam = `&lang=${language}`;
       
-      // 각 응답을 개별적으로 처리
-      const commentersResponse = await fetch(`/api/dashboard/top-commenters?refresh=true${dateQueryParams}${langParam}`, { 
-        cache: 'no-store'
-      });
-      const findersResponse = await fetch(`/api/dashboard/top-issue-finders?refresh=true${dateQueryParams}${langParam}`, { 
-        cache: 'no-store'
-      });
-      const resolversResponse = await fetch(`/api/dashboard/top-issue-resolvers?refresh=true${dateQueryParams}${langParam}`, { 
-        cache: 'no-store'
-      });
+      // 모든 API 요청에 캐시 방지 헤더 추가
+      const requestOptions = {
+        headers: {
+          'Cache-Control': 'no-cache, no-store',
+          'Pragma': 'no-cache'
+        }
+      };
+      
+      // 모든 API 요청 동시에 실행
+      const [commentersResponse, findersResponse, resolversResponse] = await Promise.all([
+        fetch(`/api/dashboard/top-commenters?refresh=true${dateQueryParams}${langParam}`, requestOptions),
+        fetch(`/api/dashboard/top-issue-finders?refresh=true${dateQueryParams}${langParam}`, requestOptions),
+        fetch(`/api/dashboard/top-issue-resolvers?refresh=true${dateQueryParams}${langParam}`, requestOptions)
+      ]);
       
       // 각 응답이 정상적인 경우에만 JSON 파싱
       const commentersData = commentersResponse.ok ? await commentersResponse.json() : [];
@@ -243,377 +256,149 @@ export default function Dashboard() {
       console.error('랭킹 데이터 로딩 중 오류:', error);
       setRankingData(prev => ({ ...prev, isLoading: false }));
     }
-  }
+  };
 
+  // 로딩 중이거나 데이터가 없는 경우의 로딩 화면
   if (isLoading && !dashboardData) {
+    // 로딩 UI 반환
     return (
       <div className="container mx-auto py-6">
-        <div className="text-center py-10">
-          <div className="inline-block animate-spin rounded-full h-8 w-8 border-4 border-solid border-primary border-r-transparent align-middle"></div>
-          <p className="mt-2">{t('dashboard.loading')}</p>
+        <div className="mb-6 flex items-center justify-between">
+          <h1 className="text-3xl font-bold">{t('dashboard.title')}</h1>
+          <div className="flex items-center space-x-2 animate-pulse">
+            <div className="h-10 w-48 bg-gray-200 rounded"></div>
+          </div>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {[1, 2, 3, 4].map((i) => (
+            <Card key={i} className="animate-pulse">
+              <CardHeader>
+                <div className="h-7 bg-gray-200 w-48 rounded"></div>
+              </CardHeader>
+              <CardContent>
+                <div className="h-64 bg-gray-100 rounded flex items-center justify-center">
+                  <BarChart2 className="h-12 w-12 text-gray-300" />
+                </div>
+              </CardContent>
+            </Card>
+          ))}
         </div>
       </div>
     );
   }
 
-  if (!dashboardData) {
-    return (
-      <div className="container mx-auto py-6">
-        <div className="text-center py-10">
-          <AlertCircle className="mx-auto h-10 w-10 text-red-500" />
-          <p className="mt-2">{t('dashboard.loadingError')}</p>
-        </div>
-      </div>
-    );
-  }
-
-  // 차트에 사용할 데이터 형식으로 변환
-  const statusData = dashboardData.statusDistribution?.map((item: any) => ({
-    name: item.name,
-    value: item.count,
-  })) || [];
-
-  const priorityData = dashboardData.priorityDistribution?.map((item: any) => ({
-    name: item.name,
-    value: item.count,
-  })) || [];
-
-  const departmentData = dashboardData.departmentDistribution?.map((item: any) => ({
-    name: item.name,
-    value: item.count,
-  })) || [];
-
-  // 월별 데이터가 없는 경우 빈 배열로 처리
-  const monthlyData = dashboardData.monthlyIssueCreation ? 
-    dashboardData.monthlyIssueCreation.map((item: any) => ({
-      name: MONTHS[language as keyof typeof MONTHS]?.[item.month - 1] || `Month ${item.month}`,
-      issues: item.count,
-    })) : [];
-
+  // 여기서부터 실제 대시보드 UI 렌더링
   return (
-    <div className="container mx-auto py-1 md:py-3">
-      <div className="grid gap-2 md:gap-3 mt-1 md:mt-2">
-        <div className="flex flex-col space-y-1 md:space-y-2">
-          <h1 className="text-xl md:text-2xl font-bold mb-0 pl-4 md:pl-0">{t('dashboard.title')}</h1>
-          <div className="flex flex-wrap items-center">
-            <DateRangeFilter onFilterChange={handleDateFilterChange} />
-          </div>
-        </div>
-        
-        {/* 대시보드 그리드 */}
-        <div className="flex flex-col md:grid md:grid-cols-3 gap-3 md:gap-6">
-          {/* 이슈 발견자 랭킹 */}
-          <Card className="w-full order-1 !mt-0 md:order-none md:shadow shadow-sm">
-            <CardHeader className="md:px-6 px-4 md:py-6 py-3">
-              <CardTitle className="flex items-center md:text-xl text-lg">
-                <AlertCircle className="h-5 w-5 mr-2" />
-                {t('dashboard.topIssueFinders')}
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="md:px-6 px-4 md:pb-6 pb-4">
-              <TopIssueFinders 
-                data={rankingData.topIssueFinders} 
-                isLoading={rankingData.isLoading} 
-              />
-            </CardContent>
-          </Card>
-          
-          {/* 이슈 해결자 랭킹 */}
-          <Card className="w-full order-2 md:order-none md:shadow shadow-sm">
-            <CardHeader className="md:px-6 px-4 md:py-6 py-3">
-              <CardTitle className="flex items-center md:text-xl text-lg">
-                <CheckCircle className="h-5 w-5 mr-2 text-green-500" />
-                {t('dashboard.topIssueResolvers')}
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="md:px-6 px-4 md:pb-6 pb-4">
-              <TopIssueResolvers 
-                data={rankingData.topIssueResolvers} 
-                isLoading={rankingData.isLoading} 
-              />
-            </CardContent>
-          </Card>
-          
-          {/* 댓글 작성 랭킹 */}
-          <Card className="w-full order-3 md:order-none md:shadow shadow-sm">
-            <CardHeader className="md:px-6 px-4 md:py-6 py-3">
-              <CardTitle className="flex items-center md:text-xl text-lg">
-                <MessageSquare className="h-5 w-5 mr-2" />
-                {t('dashboard.topCommenters')}
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="md:px-6 px-4 md:pb-6 pb-4">
-              <TopCommenters 
-                data={rankingData.topCommenters} 
-                isLoading={rankingData.isLoading} 
-              />
-            </CardContent>
-          </Card>
-          
-          {/* 월별 이슈 생성 추이 */}
-          <Card className="w-full md:col-span-2 order-6 md:order-none md:shadow shadow-sm">
-            <CardHeader className="md:px-6 px-4 md:py-6 py-3">
-              <CardTitle className="flex items-center md:text-xl text-lg">
-                <BarChart2 className="h-5 w-5 mr-2" />
-                {t('dashboard.monthlyIssueCreation')}
-              </CardTitle>
-              <CardDescription className="text-sm">
-                {t('dashboard.monthlyIssueDescription')}
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="md:px-6 px-4 md:pb-6 pb-4">
-              <div className="md:h-72 h-64">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={monthlyData}>
-                    <XAxis dataKey="name" />
-                    <YAxis 
-                      allowDecimals={false}
-                      domain={[0, (dataMax: number) => Math.max(1, Math.ceil(dataMax))]}
-                    />
-                    <Tooltip />
-                    <Legend />
-                    <Bar dataKey="issues" name={t('dashboard.issuesCount')} fill="#8884d8" />
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
-            </CardContent>
-          </Card>
-          
-          {/* 요약 카드 */}
-          <div className="w-full grid grid-cols-2 gap-4 order-7 md:order-none">
-            <Card className="md:shadow shadow-sm">
-              <CardHeader className="pb-2 md:px-6 px-4 md:py-4 py-2">
-                <CardTitle className="text-sm font-medium text-muted-foreground">
-                  {t('dashboard.totalIssues')}
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="md:px-6 px-4 md:pb-4 pb-2">
-                <div className="text-2xl font-bold">{dashboardData.totalIssues || 0}</div>
-              </CardContent>
-            </Card>
-            
-            <Card className="md:shadow shadow-sm">
-              <CardHeader className="pb-2 md:px-6 px-4 md:py-4 py-2">
-                <CardTitle className="text-sm font-medium text-muted-foreground">
-                  {t('dashboard.openIssues')}
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="md:px-6 px-4 md:pb-4 pb-2">
-                <div className="text-2xl font-bold">
-                  {dashboardData.openIssuesCount || 0}
-                </div>
-              </CardContent>
-            </Card>
-            
-            <Card className="md:shadow shadow-sm">
-              <CardHeader className="pb-2 md:px-6 px-4 md:py-4 py-2">
-                <CardTitle className="text-sm font-medium text-muted-foreground">
-                  {t('dashboard.inProgressIssues')}
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="md:px-6 px-4 md:pb-4 pb-2">
-                <div className="text-2xl font-bold">
-                  {dashboardData.inProgressIssuesCount || 0}
-                </div>
-              </CardContent>
-            </Card>
-            
-            <Card className="md:shadow shadow-sm">
-              <CardHeader className="pb-2 md:px-6 px-4 md:py-4 py-2">
-                <CardTitle className="text-sm font-medium text-muted-foreground">
-                  {t('dashboard.resolvedIssues')}
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="md:px-6 px-4 md:pb-4 pb-2">
-                <div className="text-2xl font-bold">
-                  {dashboardData.resolvedIssuesCount || 0}
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-          
-          {/* 상태 분포 */}
-          <Card className="w-full order-4 md:order-none md:shadow shadow-sm">
-            <CardHeader className="md:px-6 px-4 md:py-6 py-3">
-              <CardTitle className="flex items-center md:text-xl text-lg">
-                <PieChartIcon className="h-5 w-5 mr-2" />
-                {t('dashboard.statusDistribution')}
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="md:px-6 px-4 md:pb-6 pb-4">
-              <div className="h-64">
-                <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie
-                      data={statusData}
-                      cx="50%"
-                      cy="50%"
-                      outerRadius={70}
-                      fill="#82ca9d"
-                      dataKey="value"
-                      label={({ name, value }) => `${name}: ${value}`}
-                    >
-                      {statusData.map((entry, index) => (
-                        <Cell 
-                          key={`cell-${index}`} 
-                          fill={STATUS_COLORS[entry.name] || COLORS[index % COLORS.length]} 
-                        />
-                      ))}
-                    </Pie>
-                    <Tooltip />
-                    <Legend />
-                  </PieChart>
-                </ResponsiveContainer>
-              </div>
-            </CardContent>
-          </Card>
-          
-          {/* 우선순위 분포 */}
-          <Card className="w-full order-5 md:order-none md:shadow shadow-sm">
-            <CardHeader className="md:px-6 px-4 md:py-6 py-3">
-              <CardTitle className="flex items-center md:text-xl text-lg">
-                <PieChartIcon className="h-5 w-5 mr-2" />
-                {t('dashboard.priorityDistribution')}
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="md:px-6 px-4 md:pb-6 pb-4">
-              <div className="h-64">
-                <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie
-                      data={priorityData}
-                      cx="50%"
-                      cy="50%"
-                      outerRadius={70}
-                      fill="#82ca9d"
-                      dataKey="value"
-                      label={({ name, value }) => `${name}: ${value}`}
-                    >
-                      {priorityData.map((entry, index) => (
-                        <Cell 
-                          key={`cell-${index}`} 
-                          fill={PRIORITY_COLORS[entry.name] || COLORS[index % COLORS.length]} 
-                        />
-                      ))}
-                    </Pie>
-                    <Tooltip />
-                    <Legend />
-                  </PieChart>
-                </ResponsiveContainer>
-              </div>
-            </CardContent>
-          </Card>
-          
-          {/* 부서별 분포 */}
-          <Card className="w-full order-8 md:order-none md:shadow shadow-sm">
-            <CardHeader className="md:px-6 px-4 md:py-6 py-3">
-              <CardTitle className="flex items-center md:text-xl text-lg">
-                <Briefcase className="h-5 w-5 mr-2" />
-                {t('dashboard.departmentDistribution')}
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="md:px-6 px-4 md:pb-6 pb-4">
-              <div className="h-64">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart
-                    data={departmentData}
-                    layout="vertical"
-                    margin={{ left: 60, right: 20 }}
-                  >
-                    <XAxis type="number" />
-                    <YAxis 
-                      type="category" 
-                      dataKey="name" 
-                      width={50}
-                      tick={{ fontSize: 11 }}
-                      tickFormatter={(value) => {
-                        return value?.length > 6 ? value.substring(0, 6) + '...' : value;
-                      }}
-                    />
-                    <Tooltip />
-                    <Legend />
-                    <Bar 
-                      dataKey="value" 
-                      name={t('dashboard.issuesCount')} 
-                      fill="#4ade80" 
-                      barSize={20}
-                    />
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
-            </CardContent>
-          </Card>
-          
-          {/* 최근 이슈 */}
-          <Card className="w-full md:col-span-3 order-9 md:order-none md:shadow shadow-sm">
-            <CardHeader className="md:px-6 px-4 md:py-6 py-3">
-              <CardTitle className="flex items-center md:text-xl text-lg">
-                <Clock className="h-5 w-5 mr-2" />
-                {t('dashboard.recentIssues')}
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="h-[500px] overflow-y-auto md:px-6 px-4 md:pb-6 pb-4">
-              <div className="space-y-4">
-                {dashboardData.recentIssues && dashboardData.recentIssues.length > 0 ? (
-                  dashboardData.recentIssues.map((issue: any) => (
-                    <div key={issue.id} className="border rounded-md p-3 shadow-sm hover:shadow-md transition-shadow">
-                      <Link 
-                        href={`/issues/${issue.id}`}
-                        className="font-medium hover:underline block text-base"
-                      >
-                        {issue.title}
-                      </Link>
-                      
-                      {/* 이슈 내용 */}
-                      {issue.description && (
-                        <div className="mt-2 text-sm text-gray-600 line-clamp-2">
-                          {issue.description}
-                        </div>
-                      )}
-                      
-                      <div className="mt-3 flex flex-wrap gap-2">
-                        {/* 상태 */}
-                        {issue.status && (
-                          <Badge className={getStatusColor(issue.status?.name || 'open')}>
-                            {getStatusDisplayName(issue.status, language)}
-                          </Badge>
-                        )}
-                        
-                        {/* 우선순위 */}
-                        {issue.priority && (
-                          <Badge className={getPriorityColor(issue.priority?.name || 'medium')}>
-                            {getPriorityDisplayName(issue.priority, language)}
-                          </Badge>
-                        )}
-                        
-                        {/* 카테고리 */}
-                        <span className="text-sm text-gray-600">
-                          {getCategoryDisplayName(issue.category, language)}
-                        </span>
-                      </div>
-                      
-                      {/* 생성일 및 작성자 정보 */}
-                      <div className="flex justify-between items-center text-xs text-gray-500 mt-2">
-                        <div>
-                          <span className="mr-1">{t('common.createdBy')}:</span>
-                          <span>
-                            {issue.creator?.koreanName || issue.creator?.employeeId || t('common.unknown')}
-                          </span>
-                        </div>
-                        <div>{format(new Date(issue.createdAt), 'yyyy-MM-dd HH:mm', { locale: ko })}</div>
-                      </div>
-                    </div>
-                  ))
-                ) : (
-                  <div className="text-center py-4 text-muted-foreground">
-                    {t('dashboard.noRecentIssues')}
-                  </div>
-                )}
-              </div>
-            </CardContent>
-          </Card>
-        </div>
+    <div className="container mx-auto py-6">
+      <div className="mb-6 flex flex-col sm:flex-row items-start sm:items-center justify-between">
+        <h1 className="text-3xl font-bold mb-4 sm:mb-0">{t('dashboard.title')}</h1>
+        <DateRangeFilter 
+          onFilterChange={handleDateFilterChange} 
+          initialFromDate={dateFilter.from}
+          initialToDate={dateFilter.to}
+        />
       </div>
-    </div>
-  );
-} 
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        {/* 월별 이슈 생성 차트 */}
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="flex items-center text-lg">
+              <BarChart2 className="h-5 w-5 mr-2" />
+              {t('dashboard.monthlyIssues')}
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="h-64">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart
+                  data={dashboardData?.monthlyIssueCreation?.map((item: any) => ({
+                    name: MONTHS[language][item.month - 1],
+                    count: item.count
+                  }))}
+                  margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
+                >
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="name" />
+                  <YAxis allowDecimals={false} />
+                  <Tooltip 
+                    formatter={(value) => [value, t('dashboard.issueCount')]}
+                  />
+                  <Legend />
+                  <Bar 
+                    dataKey="count" 
+                    name={t('dashboard.issueCount')} 
+                    fill="#8884d8" 
+                  />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* 상태별 이슈 차트 */}
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="flex items-center text-lg">
+              <PieChartIcon className="h-5 w-5 mr-2" />
+              {t('dashboard.issuesByStatus')}
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="h-64">
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie
+                    data={dashboardData?.issuesByStatus}
+                    cx="50%"
+                    cy="50%"
+                    labelLine={true}
+                    outerRadius={80}
+                    fill="#8884d8"
+                    dataKey="count"
+                    nameKey="status"
+                    label={({ status, count }) => `${status}: ${count}`}
+                  >
+                    {dashboardData?.issuesByStatus?.map((entry: any, index: number) => (
+                      <Cell 
+                        key={`cell-${index}`} 
+                        fill={STATUS_COLORS[entry.status] || COLORS[index % COLORS.length]} 
+                      />
+                    ))}
+                  </Pie>
+                  <Tooltip 
+                    formatter={(value, name) => [value, name]}
+                  />
+                  <Legend />
+                </PieChart>
+              </ResponsiveContainer>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* 우선순위별 이슈 차트 */}
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="flex items-center text-lg">
+              <PieChartIcon className="h-5 w-5 mr-2" />
+              {t('dashboard.issuesByPriority')}
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="h-64">
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie
+                    data={dashboardData?.issuesByPriority}
+                    cx="50%"
+                    cy="50%"
+                    labelLine={true}
+                    outerRadius={80}
+                    fill="#8884d8"
+                    dataKey="count"
+                    nameKey="priority"
+                    label={({ priority, count }) => `${priority}: ${count}`}
+                  >
+                    {dashboardData?.issuesByPriority?.map((entry: any, index: number) => (
+                      <Cell 
+                        key={`
