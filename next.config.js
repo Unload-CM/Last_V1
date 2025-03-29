@@ -9,11 +9,23 @@ const nextConfig = {
       },
     ],
   },
-  output: 'standalone',
+  // output: 'standalone', // 정적 생성을 사용하지 않음 (서버 측 렌더링을 위해 주석 처리)
   experimental: {
     serverComponentsExternalPackages: ['@prisma/client', 'bcrypt'],
     esmExternals: 'loose',
-    serverActions: true
+    // serverActions: true // Next.js 14부터 기본으로 포함됨
+  },
+  // 서버 측 API 라우팅을 명시적으로 처리하기 위한 구성
+  async headers() {
+    return [
+      {
+        source: '/api/:path*',
+        headers: [
+          { key: 'Cache-Control', value: 'no-store, must-revalidate' },
+          { key: 'Pragma', value: 'no-cache' },
+        ],
+      },
+    ];
   },
   env: {
     DATABASE_URL: process.env.DATABASE_URL,

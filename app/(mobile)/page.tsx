@@ -17,10 +17,25 @@ import { Skeleton } from '@/components/ui/skeleton';
 import LoginForm from '@/components/LoginForm';
 import { MONTHS } from '../constants/months';
 
+// 대시보드 데이터 타입 정의
+interface DashboardData {
+  issueSummary?: {
+    open: number;
+    inProgress: number;
+    resolved: number;
+    total: number;
+  };
+  monthlyIssueCreation?: Array<{
+    month: number;
+    count: number;
+  }>;
+  // 필요한 경우 다른 데이터 속성 추가
+}
+
 export default function MobileDashboard() {
   const { data: session, status } = useSession();
   const [language, setLanguage] = useState('ko');
-  const [dashboardData, setDashboardData] = useState<any>(null);
+  const [dashboardData, setDashboardData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -143,7 +158,7 @@ export default function MobileDashboard() {
 
   // 월별 데이터 가공
   const monthlyData = dashboardData.monthlyIssueCreation ? 
-    dashboardData.monthlyIssueCreation.map((item: any) => ({
+    dashboardData.monthlyIssueCreation.map((item) => ({
       name: MONTHS[language as keyof typeof MONTHS]?.[item.month - 1] || `Month ${item.month}`,
       issues: item.count,
     }))

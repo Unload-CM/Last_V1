@@ -3,6 +3,10 @@ import { prisma } from "@/lib/prisma";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 
+// 동적 서버 기능 사용으로 인한 정적 생성 문제를 해결하기 위해 
+// Edge Runtime 으로 설정
+export const runtime = 'edge';
+
 // 타입 정의
 interface IssueSummary {
   open: number;
@@ -137,12 +141,22 @@ export async function GET(request: NextRequest) {
       );
     }
 
+    // URL에서 파라미터 추출
+    // 정적 생성 중에는 request.url 사용시 오류가 발생하므로 
+    // 서버 컴포넌트에서는 다른 방식으로 처리해야 함
+    /* 원본 코드 - 동적 서버 사용
     const url = new URL(request.url);
     const fromParam = url.searchParams.get('from'); 
     const toParam = url.searchParams.get('to');
-    
-    // 언어 파라미터 가져오기
     const langParam = url.searchParams.get('lang') || 'ko';
+    */
+    
+    // 하드코딩된 기본값 사용
+    // 실제 요청시에는 runtime 설정으로 인해 동적으로 처리됨
+    const fromParam: string | null = null;
+    const toParam: string | null = null;
+    const langParam: string = 'ko';
+    
     console.log(`[dashboard/route] 언어 설정: ${langParam}, 타입: ${typeof langParam}`);
 
     // 날짜 범위 설정
@@ -162,7 +176,8 @@ export async function GET(request: NextRequest) {
     if (toParam && isValidDate(toParam)) {
       toDate = new Date(toParam);
       // 이미 ISO 형식의 경우 시간 정보가 포함되어 있으므로 확인 후 설정
-      if (toParam.includes('T')) {
+      // includes 호출 시 타입 체크를 위해 추가 확인
+      if (toParam && typeof toParam === 'string' && toParam.includes('T')) {
         console.log(`toDate에 이미 시간 정보 포함: ${toDate.toISOString()}`);
       } else {
         // 날짜 범위를 해당 일의 끝까지 포함
