@@ -140,48 +140,49 @@ export default function Dashboard() {
     }
   };
   
-  // 직접 함수로 추출 (useCallback 사용)
-  const fetchDashboardData = useCallback(async (fromDate?: string, toDate?: string) => {
-    try {
-      setIsLoading(true);
-      const params = new URLSearchParams();
-      
-      // 날짜 파라미터가 있으면 추가
-      if (fromDate) params.append('from', fromDate);
-      if (toDate) params.append('to', toDate);
-      
-      // 언어 파라미터 추가
-      params.append('lang', language);
-      
-      console.log(`[Dashboard] 대시보드 데이터 요청: 언어=${language}, 타입=${typeof language}, URL=/api/dashboard?${params.toString()}`);
-      
-      const response = await fetch(`/api/dashboard?${params.toString()}`);
-      
-      if (!response.ok) {
-        throw new Error('데이터를 불러오는데 실패했습니다.');
+  // 클라이언트 컴포넌트에서 데이터 로드를 위한 useEffect 사용
+  useEffect(() => {
+    const fetchDashboardData = async () => {
+      try {
+        setIsLoading(true);
+        const params = new URLSearchParams();
+        
+        // 날짜 파라미터 설정
+        const fromDate = new Date(dateFilter.from);
+        fromDate.setHours(0, 0, 0, 0);
+        
+        const toDate = new Date(dateFilter.to);
+        toDate.setHours(23, 59, 59, 999);
+        
+        params.append('from', fromDate.toISOString());
+        params.append('to', toDate.toISOString());
+        params.append('lang', language);
+        
+        const response = await fetch(`/api/dashboard?${params.toString()}`);
+        
+        if (!response.ok) {
+          throw new Error('데이터를 불러오는데 실패했습니다.');
+        }
+        
+        const data = await response.json();
+        setDashboardData(data);
+        
+        // 랭킹 데이터도 함께 로드
+        await loadRankingData(dateFilter.from, dateFilter.to);
+      } catch (error) {
+        console.error('대시보드 데이터 로드 오류:', error);
+        toast.error(t('dashboard.loadingError'));
+      } finally {
+        setIsLoading(false);
+        dataLoadedRef.current = true;
       }
-      
-      const data = await response.json();
-      
-      // 반환된 데이터의 일부 로깅 (상태, 우선순위, 카테고리 필드)
-      if (data.recentIssues && data.recentIssues.length > 0) {
-        const sampleIssue = data.recentIssues[0];
-        console.log('[Dashboard] 샘플 이슈의 필드 데이터:', {
-          status: sampleIssue.status,
-          priority: sampleIssue.priority,
-          category: sampleIssue.category
-        });
-      }
-      
-      console.log('[Dashboard] 대시보드 데이터 응답 받음');
-      setDashboardData(data);
-    } catch (error) {
-      console.error('대시보드 데이터 로드 오류:', error);
-      toast.error(t('dashboard.loadingError'));
-    } finally {
-      setIsLoading(false);
+    };
+    
+    if (!dataLoadedRef.current || dateFilterChangeRef.current) {
+      fetchDashboardData();
+      dateFilterChangeRef.current = false;
     }
-  }, [language, t]);
+  }, [language, t, dateFilter]);
 
   // 날짜 필터 변경 핸들러
   const handleDateFilterChange = (from: Date, to: Date) => {
@@ -192,124 +193,8 @@ export default function Dashboard() {
     
     setDateFilter({ from, to });
     dateFilterChangeRef.current = true;
-    // 날짜 필터 변경 시 랭킹 데이터도 새로 로드
-    loadRankingData(from, to);
   };
-
-  // 날짜 필터 변경 시 ref 업데이트
-  useEffect(() => {
-    dateFilterRef.current = dateFilter;
-  }, [dateFilter]);
-
-  // 랭킹 데이터 로드
-  useEffect(() => {
-    // 날짜 필터가 설정되어 있으면 해당 날짜로, 아니면 기본 날짜 (이번 달)
-    if (dataLoadedRef.current) {
-      loadRankingData(dateFilter.from, dateFilter.to);
-    }
-  }, [language]); // 언어가 변경될 때마다 랭킹 데이터 다시 로드
-
-  // 단일 useEffect에서 모든 데이터 로딩 처리
-  useEffect(() => {
-    // 대시보드 초기 로드
-    const loadInitialData = async () => {
-      try {
-        if (!dateFilter.from || !dateFilter.to) {
-          const currentDate = new Date();
-          const firstDayOfMonth = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1);
-          
-          setDateFilter({
-            from: firstDayOfMonth,
-            to: currentDate
-          });
-          
-          // ISO 형식으로 날짜 변환
-          const fromDate = new Date(firstDayOfMonth);
-          fromDate.setHours(0, 0, 0, 0);
-          
-          const toDate = new Date(currentDate);
-          toDate.setHours(23, 59, 59, 999);
-          
-          await fetchDashboardData(fromDate.toISOString(), toDate.toISOString());
-          // 랭킹 데이터도 함께 로드
-          await loadRankingData(firstDayOfMonth, currentDate);
-        } else {
-          // ISO 형식으로 날짜 변환
-          const fromDate = new Date(dateFilter.from);
-          fromDate.setHours(0, 0, 0, 0);
-          
-          const toDate = new Date(dateFilter.to);
-          toDate.setHours(23, 59, 59, 999);
-          
-          await fetchDashboardData(fromDate.toISOString(), toDate.toISOString());
-          // 랭킹 데이터도 함께 로드
-          await loadRankingData(dateFilter.from, dateFilter.to);
-        }
-        
-        // 초기 데이터 로드 완료 표시
-        dataLoadedRef.current = true;
-        
-        // 초기 로드 후에도 상단 대시보드가 로드되도록 설정
-        dateFilterChangeRef.current = true;
-      } catch (error) {
-        console.error('대시보드 초기 로드 오류:', error);
-      }
-    };
-
-    loadInitialData();
-  }, [dateFilter, language, fetchDashboardData]);
-
-  // 날짜 필터 기반 데이터 로드
-  useEffect(() => {
-    if (!isDataLoadingRef.current && dateFilterChangeRef.current) {
-      isDataLoadingRef.current = true;
-      setIsLoading(true);
-
-      // 데이터 로드 함수
-      const loadFilteredData = async () => {
-        try {
-          // ISO 형식으로 날짜 변환 (시간 정보 포함)
-          const fromDate = new Date(dateFilter.from);
-          fromDate.setHours(0, 0, 0, 0);
-          
-          const toDate = new Date(dateFilter.to);
-          toDate.setHours(23, 59, 59, 999);
-          
-          // API 호출 시 ISO 형식의 날짜 파라미터 추가
-          const response = await fetch(
-            `/api/dashboard?from=${fromDate.toISOString()}&to=${toDate.toISOString()}`,
-            { 
-              cache: 'no-store',
-              headers: {
-                'Cache-Control': 'no-cache, no-store, must-revalidate',
-                'Pragma': 'no-cache'
-              }
-            }
-          );
-          
-          if (!response.ok) {
-            throw new Error('Failed to load dashboard data');
-          }
-          
-          const data = await response.json();
-          setDashboardData(data);
-        } catch (error) {
-          console.error('데이터 로드 중 오류:', error);
-          toast.error(t('dashboard.loadingError'));
-        } finally {
-          setIsLoading(false);
-          isDataLoadingRef.current = false;
-          dateFilterChangeRef.current = false;
-        }
-      };
-      
-      if (dateFilterChangeRef.current) {
-        loadFilteredData();
-      }
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [dateFilter]);
-    
+     
   // 랭킹 데이터 로드 (한 번만 실행)
   async function loadRankingData(startDate?: Date, endDate?: Date) {
     try {
@@ -330,39 +215,22 @@ export default function Dashboard() {
       
       // 언어 파라미터 추가
       const langParam = `&lang=${language}`;
-      console.log(`랭킹 데이터 로드: 언어=${language}`);
       
-      // 세 개의 API 요청을 병렬로 실행 (날짜 파라미터 추가)
-      const responses = await Promise.all([
-        fetch(`/api/dashboard/top-commenters?refresh=true${dateQueryParams}${langParam}`, { 
-          cache: 'no-store',
-          headers: {
-            'Cache-Control': 'no-cache, no-store, must-revalidate',
-            'Pragma': 'no-cache'
-          }
-        }),
-        fetch(`/api/dashboard/top-issue-finders?refresh=true${dateQueryParams}${langParam}`, { 
-          cache: 'no-store',
-          headers: {
-            'Cache-Control': 'no-cache, no-store, must-revalidate',
-            'Pragma': 'no-cache'
-          }
-        }),
-        fetch(`/api/dashboard/top-issue-resolvers?refresh=true${dateQueryParams}${langParam}`, { 
-          cache: 'no-store',
-          headers: {
-            'Cache-Control': 'no-cache, no-store, must-revalidate',
-            'Pragma': 'no-cache'
-          }
-        })
-      ]);
+      // 각 응답을 개별적으로 처리
+      const commentersResponse = await fetch(`/api/dashboard/top-commenters?refresh=true${dateQueryParams}${langParam}`, { 
+        cache: 'no-store'
+      });
+      const findersResponse = await fetch(`/api/dashboard/top-issue-finders?refresh=true${dateQueryParams}${langParam}`, { 
+        cache: 'no-store'
+      });
+      const resolversResponse = await fetch(`/api/dashboard/top-issue-resolvers?refresh=true${dateQueryParams}${langParam}`, { 
+        cache: 'no-store'
+      });
       
-      // 응답 처리
-      const [commentersData, findersData, resolversData] = await Promise.all([
-        responses[0].ok ? responses[0].json() : [],
-        responses[1].ok ? responses[1].json() : [],
-        responses[2].ok ? responses[2].json() : []
-      ]);
+      // 각 응답이 정상적인 경우에만 JSON 파싱
+      const commentersData = commentersResponse.ok ? await commentersResponse.json() : [];
+      const findersData = findersResponse.ok ? await findersResponse.json() : [];
+      const resolversData = resolversResponse.ok ? await resolversResponse.json() : [];
       
       // 상태 업데이트
       setRankingData({
@@ -400,41 +268,27 @@ export default function Dashboard() {
   }
 
   // 차트에 사용할 데이터 형식으로 변환
-  const statusData = dashboardData.statusDistribution.map((item: any) => ({
+  const statusData = dashboardData.statusDistribution?.map((item: any) => ({
     name: item.name,
     value: item.count,
-  }));
+  })) || [];
 
-  const priorityData = dashboardData.priorityDistribution.map((item: any) => ({
+  const priorityData = dashboardData.priorityDistribution?.map((item: any) => ({
     name: item.name,
     value: item.count,
-  }));
+  })) || [];
 
-  const departmentData = dashboardData.departmentDistribution.map((item: any) => ({
+  const departmentData = dashboardData.departmentDistribution?.map((item: any) => ({
     name: item.name,
     value: item.count,
-  }));
+  })) || [];
 
   // 월별 데이터가 없는 경우 빈 배열로 처리
   const monthlyData = dashboardData.monthlyIssueCreation ? 
     dashboardData.monthlyIssueCreation.map((item: any) => ({
-      name: MONTHS[language as keyof typeof MONTHS][item.month - 1],
+      name: MONTHS[language as keyof typeof MONTHS]?.[item.month - 1] || `Month ${item.month}`,
       issues: item.count,
-    })) : 
-    [
-      { name: '1월', issues: 0 },
-      { name: '2월', issues: 0 },
-      { name: '3월', issues: 0 },
-      { name: '4월', issues: 0 },
-      { name: '5월', issues: 0 },
-      { name: '6월', issues: 0 },
-      { name: '7월', issues: 0 },
-      { name: '8월', issues: 0 },
-      { name: '9월', issues: 0 },
-      { name: '10월', issues: 0 },
-      { name: '11월', issues: 0 },
-      { name: '12월', issues: 0 }
-    ];
+    })) : [];
 
   return (
     <div className="container mx-auto py-1 md:py-3">
@@ -446,9 +300,8 @@ export default function Dashboard() {
           </div>
         </div>
         
-        {/* 대시보드 그리드 - Tailwind의 반응형 클래스만 사용 */}
+        {/* 대시보드 그리드 */}
         <div className="flex flex-col md:grid md:grid-cols-3 gap-3 md:gap-6">
-          
           {/* 이슈 발견자 랭킹 */}
           <Card className="w-full order-1 !mt-0 md:order-none md:shadow shadow-sm">
             <CardHeader className="md:px-6 px-4 md:py-6 py-3">
@@ -497,9 +350,8 @@ export default function Dashboard() {
             </CardContent>
           </Card>
           
-          {/* 나머지 카드들 - 모바일에서는 순서 밀리게, PC에서는 기존 레이아웃 */}
+          {/* 월별 이슈 생성 추이 */}
           <Card className="w-full md:col-span-2 order-6 md:order-none md:shadow shadow-sm">
-            {/* 월별 이슈 생성 추이 */}
             <CardHeader className="md:px-6 px-4 md:py-6 py-3">
               <CardTitle className="flex items-center md:text-xl text-lg">
                 <BarChart2 className="h-5 w-5 mr-2" />
@@ -516,8 +368,7 @@ export default function Dashboard() {
                     <XAxis dataKey="name" />
                     <YAxis 
                       allowDecimals={false}
-                      domain={[0, (dataMax: number) => Math.ceil(dataMax)]}
-                      ticks={Array.from({ length: Math.ceil(Math.max(...monthlyData.map(item => item.issues))) + 1 }, (_, i) => i)}
+                      domain={[0, (dataMax: number) => Math.max(1, Math.ceil(dataMax))]}
                     />
                     <Tooltip />
                     <Legend />
@@ -528,6 +379,7 @@ export default function Dashboard() {
             </CardContent>
           </Card>
           
+          {/* 요약 카드 */}
           <div className="w-full grid grid-cols-2 gap-4 order-7 md:order-none">
             <Card className="md:shadow shadow-sm">
               <CardHeader className="pb-2 md:px-6 px-4 md:py-4 py-2">
@@ -536,7 +388,7 @@ export default function Dashboard() {
                 </CardTitle>
               </CardHeader>
               <CardContent className="md:px-6 px-4 md:pb-4 pb-2">
-                <div className="text-2xl font-bold">{dashboardData.totalIssues}</div>
+                <div className="text-2xl font-bold">{dashboardData.totalIssues || 0}</div>
               </CardContent>
             </Card>
             
@@ -580,6 +432,7 @@ export default function Dashboard() {
             </Card>
           </div>
           
+          {/* 상태 분포 */}
           <Card className="w-full order-4 md:order-none md:shadow shadow-sm">
             <CardHeader className="md:px-6 px-4 md:py-6 py-3">
               <CardTitle className="flex items-center md:text-xl text-lg">
@@ -600,16 +453,12 @@ export default function Dashboard() {
                       dataKey="value"
                       label={({ name, value }) => `${name}: ${value}`}
                     >
-                      {statusData.map((entry, index) => {
-                        // 콘솔에 상태 이름과 매칭되는 색상 출력 (디버깅용)
-                        console.log(`상태 데이터: 이름=${entry.name}, 색상=${STATUS_COLORS[entry.name] || 'undefined'}`);
-                        return (
-                          <Cell 
-                            key={`cell-${index}`} 
-                            fill={STATUS_COLORS[entry.name] || COLORS[index % COLORS.length]} 
-                          />
-                        );
-                      })}
+                      {statusData.map((entry, index) => (
+                        <Cell 
+                          key={`cell-${index}`} 
+                          fill={STATUS_COLORS[entry.name] || COLORS[index % COLORS.length]} 
+                        />
+                      ))}
                     </Pie>
                     <Tooltip />
                     <Legend />
@@ -619,6 +468,7 @@ export default function Dashboard() {
             </CardContent>
           </Card>
           
+          {/* 우선순위 분포 */}
           <Card className="w-full order-5 md:order-none md:shadow shadow-sm">
             <CardHeader className="md:px-6 px-4 md:py-6 py-3">
               <CardTitle className="flex items-center md:text-xl text-lg">
@@ -639,16 +489,12 @@ export default function Dashboard() {
                       dataKey="value"
                       label={({ name, value }) => `${name}: ${value}`}
                     >
-                      {priorityData.map((entry, index) => {
-                        // 콘솔에 우선순위 이름과 매칭되는 색상 출력 (디버깅용)
-                        console.log(`우선순위 데이터: 이름=${entry.name}, 색상=${PRIORITY_COLORS[entry.name] || 'undefined'}`);
-                        return (
-                          <Cell 
-                            key={`cell-${index}`} 
-                            fill={PRIORITY_COLORS[entry.name] || COLORS[index % COLORS.length]} 
-                          />
-                        );
-                      })}
+                      {priorityData.map((entry, index) => (
+                        <Cell 
+                          key={`cell-${index}`} 
+                          fill={PRIORITY_COLORS[entry.name] || COLORS[index % COLORS.length]} 
+                        />
+                      ))}
                     </Pie>
                     <Tooltip />
                     <Legend />
@@ -658,6 +504,7 @@ export default function Dashboard() {
             </CardContent>
           </Card>
           
+          {/* 부서별 분포 */}
           <Card className="w-full order-8 md:order-none md:shadow shadow-sm">
             <CardHeader className="md:px-6 px-4 md:py-6 py-3">
               <CardTitle className="flex items-center md:text-xl text-lg">
@@ -666,38 +513,24 @@ export default function Dashboard() {
               </CardTitle>
             </CardHeader>
             <CardContent className="md:px-6 px-4 md:pb-6 pb-4">
-              <div className="h-80">
+              <div className="h-64">
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart
                     data={departmentData}
                     layout="vertical"
-                    margin={{ top: 5, right: 30, left: 70, bottom: 5 }}
+                    margin={{ left: 60, right: 20 }}
                   >
-                    <XAxis 
-                      type="number" 
-                      domain={[0, (dataMax) => Math.max(dataMax * 1.2, 3)]} 
-                      allowDecimals={false}
-                      tickCount={Math.max(...departmentData.map(d => d.value)) + 1}
-                      ticks={Array.from({length: Math.max(...departmentData.map(d => d.value)) + 1 + 1}, (_, i) => i)}
-                    />
+                    <XAxis type="number" />
                     <YAxis 
                       type="category" 
                       dataKey="name" 
-                      width={60} 
+                      width={50}
                       tick={{ fontSize: 11 }}
                       tickFormatter={(value) => {
-                        // 문자열이 6자를 초과하면 ...으로 줄임
                         return value?.length > 6 ? value.substring(0, 6) + '...' : value;
                       }}
                     />
-                    <Tooltip formatter={(value, name, props) => {
-                      // 툴크에서는 원래 이름을 표시
-                      if (name === "name") {
-                        return props.payload.name;
-                      }
-                      return [value, name];
-                    }}
-                    />
+                    <Tooltip />
                     <Legend />
                     <Bar 
                       dataKey="value" 
@@ -711,6 +544,7 @@ export default function Dashboard() {
             </CardContent>
           </Card>
           
+          {/* 최근 이슈 */}
           <Card className="w-full md:col-span-3 order-9 md:order-none md:shadow shadow-sm">
             <CardHeader className="md:px-6 px-4 md:py-6 py-3">
               <CardTitle className="flex items-center md:text-xl text-lg">
@@ -737,149 +571,36 @@ export default function Dashboard() {
                         </div>
                       )}
                       
-                      <div className="mt-3 space-y-1.5">
-                        {/* 상태, 우선순위, 카테고리 정보 - 데스크톱 버전 */}
-                        <div className="hidden md:grid md:grid-cols-3 gap-2 mb-2">
-                          <div className="bg-gray-50 p-2 rounded-md">
-                            <div className="flex justify-between items-center">
-                              <div className="text-sm font-medium">{t('common.status')}:</div>
-                              <Badge className={getStatusColor(issue.status.name)}>
-                                {getStatusDisplayName(issue.status, language)}
-                              </Badge>
-                            </div>
-                          </div>
-                          <div className="bg-gray-50 p-2 rounded-md">
-                            <div className="flex justify-between items-center">
-                              <div className="text-sm font-medium">{t('issues.priority')}:</div>
-                              <Badge className={getPriorityColor(issue.priority?.name || '')}>
-                                {getPriorityDisplayName(issue.priority, language)}
-                              </Badge>
-                            </div>
-                          </div>
-                          <div className="bg-gray-50 p-2 rounded-md">
-                            <div className="flex justify-between items-center">
-                              <div className="text-sm font-medium">{t('issues.category')}:</div>
-                              <div>{getCategoryDisplayName(issue.category, language)}</div>
-                            </div>
-                          </div>
-                        </div>
-
-                        {/* 모바일용 세로 레이아웃 */}
-                        <div className="md:hidden mb-3">
-                          {/* 2*2 그리드 형식으로 구성 */}
-                          <div className="grid grid-cols-2 gap-2">
-                            {/* 1행 1열: 상태 */}
-                            <div className="bg-gray-50 p-2 rounded-md">
-                              <div className="flex flex-col">
-                                <div className="text-sm font-medium text-gray-500 mb-1">{t('common.status')}:</div>
-                                <Badge className={`${getStatusColor(issue.status.name)} w-fit`}>
-                                  {getStatusDisplayName(issue.status, language)}
-                                </Badge>
-                              </div>
-                            </div>
-                            
-                            {/* 1행 2열: 우선순위 */}
-                            <div className="bg-gray-50 p-2 rounded-md">
-                              <div className="flex flex-col">
-                                <div className="text-sm font-medium text-gray-500 mb-1">{t('issues.priority')}:</div>
-                                <Badge className={`${getPriorityColor(issue.priority?.name || '')} w-fit`}>
-                                  {getPriorityDisplayName(issue.priority, language)}
-                                </Badge>
-                              </div>
-                            </div>
-                            
-                            {/* 2행 1열: 카테고리 */}
-                            <div className="bg-gray-50 p-2 rounded-md">
-                              <div className="flex flex-col">
-                                <div className="text-sm font-medium text-gray-500 mb-1">{t('issues.category')}:</div>
-                                <div className="text-sm font-medium">{getCategoryDisplayName(issue.category, language)}</div>
-                              </div>
-                            </div>
-                            
-                            {/* 2행 2열: 빈 셀 또는 추가 정보 */}
-                            {issue.department && (
-                              <div className="bg-gray-50 p-2 rounded-md">
-                                <div className="flex flex-col">
-                                  <div className="text-sm font-medium text-gray-500 mb-1">{t('issues.department')}:</div>
-                                  <div className="text-sm font-medium">{getDepartmentDisplayName(issue.department, language)}</div>
-                                </div>
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                        
-                        {/* 이슈 발견자와 해결자 정보를 2*2 그리드로 표시 */}
-                        <div className="md:hidden mb-2">
-                          <div className="grid grid-cols-1 gap-2">
-                            {/* 이슈 발견자 */}
-                            {issue.assignee && (
-                              <div className="bg-gray-50 p-2 rounded-md">
-                                <div className="flex flex-col">
-                                  <div className="text-sm font-medium text-gray-500 mb-1">{t('issues.assignedTo')}:</div>
-                                  <div className="text-sm font-medium truncate">
-                                    {issue.assignee.koreanName || issue.assignee.employeeId}
-                                    {issue.assignee.thaiName && ` (${issue.assignee.thaiName})`}
-                                    {issue.assignee.nickname && ` - ${issue.assignee.nickname}`}
-                                    {issue.assignee.department && ` | ${getDepartmentDisplayName(issue.assignee.department, language)}`}
-                                  </div>
-                                </div>
-                              </div>
-                            )}
-                            
-                            {/* 이슈 해결자 */}
-                            {issue.solver && (
-                              <div className="bg-gray-50 p-2 rounded-md">
-                                <div className="flex flex-col">
-                                  <div className="text-sm font-medium text-gray-500 mb-1">{t('issues.solver')}:</div>
-                                  <div className="text-sm font-medium truncate">
-                                    {issue.solver.koreanName || issue.solver.employeeId}
-                                    {issue.solver.thaiName && ` (${issue.solver.thaiName})`}
-                                    {issue.solver.nickname && ` - ${issue.solver.nickname}`}
-                                    {issue.solver.department && ` | ${getDepartmentDisplayName(issue.solver.department, language)}`}
-                                  </div>
-                                </div>
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                        
-                        {/* 이슈 발견자 정보 - 데스크톱 버전 */}
-                        {issue.assignee && (
-                          <div className="hidden md:flex md:items-center text-sm mb-1">
-                            <span className="font-medium text-gray-700 mr-2 inline-block">{t('issues.assignedTo')}:</span>
-                            <span className="inline-block">
-                              {issue.assignee.koreanName || issue.assignee.employeeId}
-                              {issue.assignee.thaiName && ` (${issue.assignee.thaiName})`}
-                              {issue.assignee.nickname && ` - ${issue.assignee.nickname}`}
-                              {issue.assignee.department && ` | ${getDepartmentDisplayName(issue.assignee.department, language)}`}
-                            </span>
-                          </div>
+                      <div className="mt-3 flex flex-wrap gap-2">
+                        {/* 상태 */}
+                        {issue.status && (
+                          <Badge className={getStatusColor(issue.status?.name || 'open')}>
+                            {getStatusDisplayName(issue.status, language)}
+                          </Badge>
                         )}
                         
-                        {/* 이슈 해결자 정보 - 데스크톱 버전 */}
-                        {issue.solver && (
-                          <div className="hidden md:flex md:items-center text-sm mb-1">
-                            <span className="font-medium text-gray-700 mr-2 inline-block">{t('issues.solver')}:</span>
-                            <span className="inline-block">
-                              {issue.solver.koreanName || issue.solver.employeeId}
-                              {issue.solver.thaiName && ` (${issue.solver.thaiName})`}
-                              {issue.solver.nickname && ` - ${issue.solver.nickname}`}
-                              {issue.solver.department && ` | ${getDepartmentDisplayName(issue.solver.department, language)}`}
-                            </span>
-                          </div>
+                        {/* 우선순위 */}
+                        {issue.priority && (
+                          <Badge className={getPriorityColor(issue.priority?.name || 'medium')}>
+                            {getPriorityDisplayName(issue.priority, language)}
+                          </Badge>
                         )}
                         
-                        {/* 생성일 및 작성자 정보 */}
-                        <div className="flex justify-between items-center text-xs text-gray-500 mt-2">
-                          <div>
-                            <span className="mr-1">{t('common.createdBy')}:</span>
-                            <span>
-                              {issue.creator?.koreanName || issue.creator?.employeeId || t('common.unknown')}
-                              {issue.creator?.thaiName && ` (${issue.creator.thaiName})`}
-                            </span>
-                          </div>
-                          <div>{format(new Date(issue.createdAt), 'yyyy-MM-dd HH:mm', { locale: ko })}</div>
+                        {/* 카테고리 */}
+                        <span className="text-sm text-gray-600">
+                          {getCategoryDisplayName(issue.category, language)}
+                        </span>
+                      </div>
+                      
+                      {/* 생성일 및 작성자 정보 */}
+                      <div className="flex justify-between items-center text-xs text-gray-500 mt-2">
+                        <div>
+                          <span className="mr-1">{t('common.createdBy')}:</span>
+                          <span>
+                            {issue.creator?.koreanName || issue.creator?.employeeId || t('common.unknown')}
+                          </span>
                         </div>
+                        <div>{format(new Date(issue.createdAt), 'yyyy-MM-dd HH:mm', { locale: ko })}</div>
                       </div>
                     </div>
                   ))

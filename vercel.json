@@ -4,13 +4,14 @@
   "outputDirectory": ".next",
   "regions": ["iad1"],
   "env": {
-    "DATABASE_URL": "DATABASE_URL_PLACEHOLDER",
+    "DATABASE_URL": "postgresql://postgres:1234@db.unwvnodolgwrgiojrswp.supabase.co:5432/postgres",
     "NEXT_PUBLIC_SUPABASE_URL": "https://unwvnodolgwrgiojrswp.supabase.co",
     "NEXT_PUBLIC_SUPABASE_ANON_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVud3Zub2RvbGd3cmdpb2pyc3dwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDMyNDI5MDMsImV4cCI6MjA1ODgxODkwM30.6Rt2IFchWfwRGHP15yT_G3UchMUHsayHJdu63gJ5LDA",
     "NEXT_PUBLIC_BASE_URL": "https://last-v1.vercel.app",
     "NEXTAUTH_URL": "https://last-v1.vercel.app",
     "NEXT_PUBLIC_LOGOUT_REDIRECT_URL": "https://last-v1.vercel.app/admin-login",
-    "NEXTAUTH_SECRET": "inductor-factory-nextauth-secret",
-    "NODE_ENV": "production" 
-  }
+    "NEXTAUTH_SECRET": "84d67aeaff4834ad58d65adc4f5cde4d",
+    "NODE_ENV": "production"
+  },
+  "installCommand": "npm install"
 } 
