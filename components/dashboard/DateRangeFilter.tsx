@@ -13,13 +13,15 @@ import { useMediaQuery } from 'react-responsive';
 
 interface DateRangeFilterProps {
   onFilterChange: (from: Date, to: Date) => void;
+  initialFromDate?: Date;
+  initialToDate?: Date;
 }
 
-export default function DateRangeFilter({ onFilterChange }: DateRangeFilterProps) {
+export default function DateRangeFilter({ onFilterChange, initialFromDate, initialToDate }: DateRangeFilterProps) {
   const { t } = useTranslation();
   const today = new Date();
-  const [fromDate, setFromDate] = useState<Date>(startOfMonth(today));
-  const [toDate, setToDate] = useState<Date>(today);
+  const [fromDate, setFromDate] = useState<Date>(initialFromDate || startOfMonth(today));
+  const [toDate, setToDate] = useState<Date>(initialToDate || today);
   const [fromOpen, setFromOpen] = useState(false);
   const [toOpen, setToOpen] = useState(false);
   const [periodOpen, setPeriodOpen] = useState(false);
@@ -85,6 +87,18 @@ export default function DateRangeFilter({ onFilterChange }: DateRangeFilterProps
     notifyFilterChange();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [fromDate, toDate]);
+
+  // 초기값이 변경되면 상태 업데이트
+  useEffect(() => {
+    if (initialFromDate) {
+      setFromDate(initialFromDate);
+      prevFromDate.current = initialFromDate;
+    }
+    if (initialToDate) {
+      setToDate(initialToDate);
+      prevToDate.current = initialToDate;
+    }
+  }, [initialFromDate, initialToDate]);
 
   // 날짜 형식 포맷
   const formatDate = (date: Date) => {
