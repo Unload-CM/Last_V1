@@ -9,7 +9,7 @@ const nextConfig = {
       },
     ],
   },
-  // 빌드 출력 설정
+  // 서버 사이드 렌더링 사용, 정적 생성 비활성화
   output: 'standalone',
   
   // webpack 설정 추가: NextAuth와 함께 사용하기 위한 폴리필 추가
@@ -31,12 +31,17 @@ const nextConfig = {
   experimental: {
     serverComponentsExternalPackages: ['@prisma/client', 'bcrypt'],
     esmExternals: 'loose',
-    serverActions: true  // 서버 액션 활성화
+    serverActions: true,
+    // 모든 페이지를 서버 사이드 렌더링으로 처리
+    appDir: true
   },
   
-  // 정적 생성 비활성화 및 서버 측 렌더링 활성화
+  // 정적 생성 타임아웃 및 설정
   staticPageGenerationTimeout: 300,
   distDir: '.next',
+  
+  // 정적 페이지 생성 완전히 비활성화
+  staticWorkerTypes: false,
   
   // 서버 측 API 라우팅을 명시적으로 처리하기 위한 구성
   async headers() {

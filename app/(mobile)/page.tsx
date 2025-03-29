@@ -1,5 +1,10 @@
 'use client';
 
+// 클라이언트 컴포넌트 초기화 함수
+export const clientComponentInit = () => {
+  return { clientModules: {} };
+};
+
 import { useEffect, useState } from 'react';
 import { useSession } from 'next-auth/react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';

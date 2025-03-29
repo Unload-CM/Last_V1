@@ -1,5 +1,10 @@
 'use client';
 
+// 클라이언트 컴포넌트 초기화 함수
+export const clientComponentInit = () => {
+  return { clientModules: {} };
+};
+
 import { useState, useEffect, useRef, useCallback } from 'react';
 import dynamic from 'next/dynamic';
 import { useRouter } from 'next/navigation';
