@@ -71,6 +71,17 @@ let currentLanguage: LanguageCode = DEFAULT_LANGUAGE;
 let useDynamicTranslation = true;
 
 /**
+ * 언어 코드를 정규화합니다.
+ */
+export function normalizeLanguageCode(lang: string): LanguageCode {
+  const normalizedLang = lang.toLowerCase();
+  if (Object.values(LANGUAGES).includes(normalizedLang as LanguageCode)) {
+    return normalizedLang as LanguageCode;
+  }
+  return DEFAULT_LANGUAGE;
+}
+
+/**
  * 동적 번역 모드 설정
  */
 export function setDynamicTranslationMode(useMode: boolean): void {
