@@ -31,6 +31,7 @@ const nextConfig = {
   experimental: {
     serverComponentsExternalPackages: ['@prisma/client', 'bcrypt'],
     esmExternals: 'loose',
+    serverActions: true,
   },
   
   // 정적 생성 타임아웃 및 설정
@@ -57,7 +58,10 @@ const nextConfig = {
     NEXT_PUBLIC_SUPABASE_ANON_KEY: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
     NEXT_PUBLIC_SITE_URL: process.env.NEXT_PUBLIC_SITE_URL || 'https://last-v1.vercel.app',
     NEXT_PUBLIC_BASE_URL: process.env.NEXT_PUBLIC_BASE_URL || 'https://last-v1.vercel.app'
-  }
+  },
+  
+  // Node.js 런타임 사용 (Edge 런타임 대신)
+  runtime: 'nodejs'
 };
 
 module.exports = nextConfig; 

@@ -1,5 +1,3 @@
-'use client';
-
 import dynamic from 'next/dynamic';
 import { Skeleton } from '@/components/ui/skeleton';
 
@@ -9,7 +7,7 @@ type ChartDataType = {
   issues: number;
 }[];
 
-// 컴포넌트를 동적으로 임포트
+// 컴포넌트를 동적으로 임포트 - 클라이언트 사이드에서만 실행
 const MobileDashboardComponent = dynamic(
   () => import('@/components/MobileDashboardComponent'),
   {
