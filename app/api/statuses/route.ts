@@ -1,20 +1,56 @@
-import { NextResponse } from 'next/server';
-import prisma from '@/lib/prisma';
+import { NextRequest, NextResponse } from 'next/server';
+import { prisma } from '@/lib/prisma';
 
-export async function GET() {
+// 정적 생성 사용하지 않음 (항상 동적 경로로 처리)
+export const dynamic = 'force-dynamic';
+export const fetchCache = 'force-no-store';
+export const runtime = 'nodejs';
+
+// 샘플 상태 데이터
+const SAMPLE_STATUSES = [
+  { id: 1, name: 'OPEN', label: '열림', thaiLabel: 'เปิด', color: '#FF0000' },
+  { id: 2, name: 'IN_PROGRESS', label: '진행중', thaiLabel: 'กำลังดำเนินการ', color: '#FFFF00' },
+  { id: 3, name: 'RESOLVED', label: '해결됨', thaiLabel: 'แก้ไขแล้ว', color: '#00FF00' },
+  { id: 4, name: 'CLOSED', label: '종료', thaiLabel: 'ปิดแล้ว', color: '#808080' }
+];
+
+/**
+ * 상태 목록 조회 API
+ * GET /api/statuses
+ */
+export async function GET(request: NextRequest) {
   try {
-    const statuses = await prisma.status.findMany({
-      select: {
-        id: true,
-        name: true
+    try {
+      // 데이터베이스에서 상태 조회 시도
+      const statuses = await prisma.status.findMany({
+        orderBy: {
+          id: 'asc'
+        }
+      });
+      
+      // 상태가 있으면 실제 데이터 반환
+      if (statuses && statuses.length > 0) {
+        return NextResponse.json({
+          statuses: statuses
+        });
+      } else {
+        // 상태가 없으면 샘플 데이터 반환
+        console.log('상태 데이터가 없어 샘플 데이터 반환');
+        return NextResponse.json({
+          statuses: SAMPLE_STATUSES
+        });
       }
-    });
-
-    return NextResponse.json(statuses);
+    } catch (dbError) {
+      // 데이터베이스 오류 시 샘플 데이터 반환
+      console.error('상태 데이터 조회 중 DB 오류:', dbError);
+      return NextResponse.json({
+        statuses: SAMPLE_STATUSES
+      });
+    }
   } catch (error) {
     console.error('Error fetching statuses:', error);
     return NextResponse.json(
-      { error: 'Failed to fetch statuses' },
+      { error: '상태 목록을 가져오는데 실패했습니다.' },
       { status: 500 }
     );
   }

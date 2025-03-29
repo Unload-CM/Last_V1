@@ -30,8 +30,7 @@ const nextConfig = {
   
   experimental: {
     serverComponentsExternalPackages: ['@prisma/client', 'bcrypt'],
-    esmExternals: 'loose',
-    serverActions: true
+    esmExternals: 'loose'
   },
   
   // 정적 생성 비활성화 및 서버 측 렌더링 활성화

@@ -67,7 +67,7 @@ export default function MobileDashboard() {
       return;
     }
     
-    async function fetchData() {
+    const fetchData = async () => {
       try {
         // 현재 날짜 기준으로 이번 달의 시작일과 현재 날짜를 구합니다
         const now = new Date();
@@ -113,7 +113,7 @@ export default function MobileDashboard() {
       } finally {
         setLoading(false);
       }
-    }
+    };
 
     if (status === 'authenticated') {
       fetchData();
