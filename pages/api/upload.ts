@@ -16,7 +16,24 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   try {
     // 파일 업로드 처리
     const { files } = await handleFileUpload(req, res);
-    const results = [];
+    
+    // 결과를 저장할 배열 (타입 명시)
+    const results: Array<{
+      originalPath: string;
+      optimizedPath: string;
+      thumbnailPath: string;
+      originalSize: number;
+      optimizedSize: number;
+      thumbnailSize: number;
+      width: number;
+      height: number;
+    } | {
+      originalPath: string;
+      optimizedPath: string;
+      thumbnailPath: string;
+      originalSize: number;
+      duration: number;
+    }> = [];
 
     // 각 파일 처리
     for (const fileKey in files) {

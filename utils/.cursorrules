@@ -1,0 +1,11 @@
+## DB연결
+현재 프로젝트는 PostgreSQL을 사용하고 있기 때문입니다. Prisma 설정에서도 PostgreSQL을 데이터소스로 지정해야해.
+
+## Next.js: Route Handler 우선 사용
+Next.js 14에서 도입된 Route Handler를 우선적으로 사용해.
+데이터베이스 작업, 외부 API 호출, 인증 등 복잡한 서버 작업은 반드시Route Handler에서 처리해.
+
+
+
+
+

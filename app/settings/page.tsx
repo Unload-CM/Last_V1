@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import Navigation from '@/components/Navigation';
 import useTranslation from '@/utils/i18n';
 import { FiDatabase, FiFilter, FiList, FiUser, FiDownload, FiUpload, FiPlus, FiEdit2, FiTrash, FiX, FiRefreshCw, FiSave } from 'react-icons/fi';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -350,7 +349,6 @@ export default function SettingsPage() {
 
   return (
     <div className="min-h-screen bg-gray-100">
-      <Navigation />
       <div className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
         <div className="px-4 sm:px-0">
           <h1 className="text-2xl font-semibold text-gray-900">설정</h1>
@@ -362,7 +360,7 @@ export default function SettingsPage() {
         <div className="mt-4">
           <div className="sm:hidden">
             <select
-              className="block w-full rounded-md border-gray-300 py-2"
+              className="block w-[98%] mx-auto rounded-md border border-gray-300 py-2 px-2 mb-4 mt-2"
               value={activeTab}
               onChange={(e) => setActiveTab(e.target.value)}
             >

@@ -32,7 +32,13 @@ export async function GET(request: NextRequest) {
       }
     });
 
-    return NextResponse.json(departments);
+    // 디버깅: thaiLabel이 있는 부서 확인
+    console.log('부서 목록 API 호출됨');
+    departments.forEach(dept => {
+      console.log(`부서 ${dept.id} ${dept.name}: label=${dept.label}, thaiLabel=${dept.thaiLabel || 'null'}`);
+    });
+
+    return NextResponse.json({ departments });
   } catch (error) {
     console.error('Error fetching departments:', error);
     return NextResponse.json(

@@ -27,17 +27,45 @@ import {
 
 import { Department } from '@prisma/client';
 
-import { createContext, useContext, useState, useCallback, ReactNode } from 'react';
+import { createContext, useContext, useState, useCallback, ReactNode, createElement } from 'react';
 
 // 언어 코드 정의
 export const LANGUAGES = {
   KO: 'ko',
   TH: 'th',
   EN: 'en'
+} as const;
+
+// 지원하는 언어 타입
+export type LanguageCode = typeof LANGUAGES[keyof typeof LANGUAGES];
+
+// 번역 키 타입
+export type TranslationKey = string;
+
+// 번역 데이터 타입
+export type TranslationData = {
+  [key: string]: string | TranslationData;
 };
 
+// 번역 컨텍스트 타입
+export interface TranslationContext {
+  language: LanguageCode;
+  setLanguage: (lang: LanguageCode) => void;
+  t: (key: TranslationKey) => string;
+}
+
+// 기본 언어 설정
+export const DEFAULT_LANGUAGE: LanguageCode = LANGUAGES.KO;
+
+// 지원하는 언어 목록
+export const SUPPORTED_LANGUAGES = [
+  { code: LANGUAGES.KO, name: '한국어' },
+  { code: LANGUAGES.TH, name: 'ไทย' },
+  { code: LANGUAGES.EN, name: 'English' }
+] as const;
+
 // 현재 언어 설정
-let currentLanguage = LANGUAGES.KO;
+let currentLanguage: LanguageCode = DEFAULT_LANGUAGE;
 
 // 동적 번역 사용 여부
 let useDynamicTranslation = true;
@@ -53,19 +81,16 @@ export function setDynamicTranslationMode(useMode: boolean): void {
 /**
  * 현재 언어 설정하기
  */
-export function setLanguage(lang: string) {
-  if (Object.values(LANGUAGES).includes(lang)) {
-    currentLanguage = lang;
-    console.log(`언어가 ${lang}로 설정되었습니다.`);
-  } else {
-    console.error(`지원하지 않는 언어 코드: ${lang}`);
-  }
+export function setLanguage(lang: string): void {
+  const normalizedLang = normalizeLanguageCode(lang);
+  currentLanguage = normalizedLang;
+  console.log(`언어가 ${normalizedLang}로 설정되었습니다.`);
 }
 
 /**
  * 현재 설정된 언어 가져오기
  */
-export function getLanguage(): string {
+export function getLanguage(): LanguageCode {
   return currentLanguage;
 }
 
@@ -167,33 +192,28 @@ export async function initTranslationSystem(): Promise<void> {
 /**
  * 데이터베이스 항목의 표시 이름을 현재 언어에 맞게 반환합니다.
  */
-export function getDisplayName(item: { name: string; label?: string; thaiLabel?: string }, type: 'department' | 'position' | 'status' | 'priority' | 'category'): string {
+export function getDisplayName(
+  item: { name: string; label?: string; thaiLabel?: string },
+  type: 'department' | 'position' | 'status' | 'priority' | 'category'
+): string {
   if (!item) return '';
 
   if (currentLanguage === LANGUAGES.TH) {
-    // 1. 데이터베이스에 저장된 태국어 라벨이 있으면 사용
     if (item.thaiLabel) {
       return item.thaiLabel;
     }
     
-    // 2. 없으면 translations.ts의 태국어 번역 사용
-    switch (type) {
-      case 'department':
-        return departmentTranslationsThai[item.name] || item.name;
-      case 'position':
-        return positionTranslationsThai[item.name] || item.name;
-      case 'status':
-        return statusTranslationsThai[item.name] || item.name;
-      case 'priority':
-        return priorityTranslationsThai[item.name] || item.name;
-      case 'category':
-        return categoryTranslationsThai[item.name] || item.name;
-      default:
-        return item.name;
-    }
+    const translations = {
+      department: departmentTranslationsThai,
+      position: positionTranslationsThai,
+      status: statusTranslationsThai,
+      priority: priorityTranslationsThai,
+      category: categoryTranslationsThai
+    };
+    
+    return translations[type][item.name] || item.name;
   }
 
-  // 한국어 표시
   return item.label || item.name;
 }
 
@@ -230,6 +250,34 @@ export function translateDepartment(department: Department, language: string = '
 }
 
 /**
+ * 카테고리 정보를 선택된 언어로 번역합니다.
+ */
+export function translateCategory(category: any, language: string = 'ko') {
+  if (!category) return null;
+
+  return {
+    ...category,
+    label: language === 'th' ? category.thaiLabel || category.label : category.label,
+    description: language === 'th' ? category.thaiDescription || category.description : category.description
+  };
+}
+
+/**
+ * 카테고리명을 영문 키로 변환합니다.
+ */
+export function getCategoryKey(name: string): string {
+  const categoryKeys: { [key: string]: string } = {
+    '품질': 'quality',
+    '생산': 'production',
+    '설비': 'maintenance',
+    '안전': 'safety',
+    '기타': 'etc'
+  };
+
+  return categoryKeys[name] || name.toLowerCase();
+}
+
+/**
  * 부서명을 영문 키로 변환합니다.
  */
 export function getDepartmentKey(name: string): string {
@@ -246,7 +294,13 @@ export function getDepartmentKey(name: string): string {
 }
 
 // 이전 버전과의 호환성을 위해 내보내기
-export { loadTranslations, getTranslation, addTranslation, getBulkTranslations, invalidateCache } from './dynamic-translator';
+export {
+  loadTranslations,
+  getTranslation,
+  addTranslation,
+  getBulkTranslations,
+  invalidateCache
+} from './dynamic-translator';
 
 type Language = 'ko' | 'th' | 'en';
 
@@ -305,25 +359,34 @@ interface LanguageContextType {
   t: (key: string) => string;
 }
 
-const LanguageContext = createContext<LanguageContextType | undefined>(undefined);
+// Language Context
+const LanguageContext = createContext<LanguageContextType>({
+  language: 'ko',
+  setLanguage: () => {},
+  t: (key: string) => key
+});
 
+/**
+ * 언어 설정을 제공하는 컴포넌트
+ */
 export function LanguageProvider({ children }: { children: ReactNode }) {
-  const [language, setLanguage] = useState<Language>('ko');
-  const [translations, setTranslations] = useState<TranslationsType>(DEFAULT_TRANSLATIONS);
+  const [language, setLanguageState] = useState<Language>(
+    (typeof window !== 'undefined' && localStorage.getItem('language') as Language) || 'ko'
+  );
 
-  const t = useCallback((key: string): string => {
-    const translation = translations[language]?.[key];
-    if (!translation) {
-      console.warn(`Missing translation for key: ${key} in language: ${language}`);
-      return key.split('.').pop() || key;
+  // 언어 변경 함수
+  const setLanguage = useCallback((lang: Language) => {
+    setLanguageState(lang);
+    currentLanguage = lang;
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('language', lang);
     }
-    return translation;
-  }, [language, translations]);
+  }, []);
 
-  return (
-    <LanguageContext.Provider value={{ language, setLanguage, t }}>
-      {children}
-    </LanguageContext.Provider>
+  return createElement(
+    LanguageContext.Provider, 
+    { value: { language, setLanguage, t } }, 
+    children
   );
 }
 

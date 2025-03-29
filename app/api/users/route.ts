@@ -1,12 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '../../../lib/prisma';
 
-// 샘플 사용자 데이터
-const SAMPLE_USERS = [
+// 샘플 사용자 데이터와 인메모리 저장소
+let users = [
   {
     id: 1,
     name: '김철수',
     email: 'kim@example.com',
+    password: 'hashed_password1',
     role: 'ADMIN',
     departmentId: '1',
     department: { name: '생산부' },
@@ -17,6 +18,7 @@ const SAMPLE_USERS = [
     id: 2,
     name: '이영희',
     email: 'lee@example.com',
+    password: 'hashed_password2',
     role: 'MANAGER',
     departmentId: '2',
     department: { name: '품질관리부' },
@@ -27,6 +29,7 @@ const SAMPLE_USERS = [
     id: 3,
     name: '박지성',
     email: 'park@example.com',
+    password: 'hashed_password3',
     role: 'STAFF',
     departmentId: '3',
     department: { name: '물류창고' },
@@ -34,6 +37,9 @@ const SAMPLE_USERS = [
     updatedAt: new Date(Date.now() - 86400000 * 2).toISOString()
   }
 ];
+
+// 다음 ID 값
+let nextId = users.length + 1;
 
 /**
  * 사용자 목록 조회 API
@@ -47,37 +53,25 @@ export async function GET(req: NextRequest) {
     const role = searchParams.get('role');
     const search = searchParams.get('search');
     
-    // 필터링 조건 구성
-    const where: any = {};
+    // 인메모리 데이터 필터링
+    let filteredUsers = [...users];
     
     if (role) {
-      where.role = role;
+      filteredUsers = filteredUsers.filter(user => user.role === role);
     }
     
     if (search) {
-      where.OR = [
-        { name: { contains: search, mode: 'insensitive' } },
-        { email: { contains: search, mode: 'insensitive' } }
-      ];
+      const searchLower = search.toLowerCase();
+      filteredUsers = filteredUsers.filter(user => 
+        user.name.toLowerCase().includes(searchLower) || 
+        user.email.toLowerCase().includes(searchLower)
+      );
     }
     
-    // 사용자 목록 조회 (비밀번호 제외)
-    const users = await prisma.user.findMany({
-      where,
-      select: {
-        id: true,
-        name: true,
-        email: true,
-        role: true,
-        createdAt: true,
-        updatedAt: true
-      },
-      orderBy: {
-        name: 'asc'
-      }
-    });
+    // 비밀번호 필드 제외하고 결과 반환
+    const result = filteredUsers.map(({ password, ...user }) => user);
     
-    return NextResponse.json({ users });
+    return NextResponse.json({ users: result });
   } catch (error) {
     console.error('사용자 목록 조회 중 오류 발생:', error);
     return NextResponse.json(
@@ -106,9 +100,7 @@ export async function POST(req: NextRequest) {
     }
     
     // 이메일 중복 확인
-    const existingUser = await prisma.user.findUnique({
-      where: { email }
-    });
+    const existingUser = users.find(user => user.email === email);
     
     if (existingUser) {
       return NextResponse.json(
@@ -121,27 +113,28 @@ export async function POST(req: NextRequest) {
     // const hashedPassword = await bcrypt.hash(password, 10);
     
     // 사용자 생성
-    const newUser = await prisma.user.create({
-      data: {
-        name,
-        email,
-        password, // 실제 구현에서는 hashedPassword 사용
-        role: role || 'user'
-      },
-      select: {
-        id: true,
-        name: true,
-        email: true,
-        role: true,
-        createdAt: true,
-        updatedAt: true
-      }
-    });
+    const newUser = {
+      id: nextId++,
+      name,
+      email,
+      password, // 실제 구현에서는 hashedPassword 사용
+      role: role || 'user',
+      departmentId: data.departmentId || '1',
+      department: { name: data.departmentName || '생산부' },
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    };
+    
+    // 사용자 추가
+    users.push(newUser);
+    
+    // 비밀번호 제외한 정보 반환
+    const { password: _, ...userWithoutPassword } = newUser;
     
     return NextResponse.json({ 
       success: true, 
       message: '사용자가 성공적으로 생성되었습니다.',
-      user: newUser 
+      user: userWithoutPassword 
     }, { status: 201 });
   } catch (error) {
     console.error('사용자 생성 중 오류 발생:', error);

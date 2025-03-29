@@ -1,6 +1,31 @@
 import prisma from '@/lib/prisma';
 import { LANGUAGES } from './index';
 
+// 인메모리 번역 데이터 (Translation 테이블 대체)
+const inMemoryTranslationData: {
+  id: number;
+  key: string;
+  language: string;
+  translation: string;
+  category: string;
+}[] = [
+  { id: 1, key: 'common.save', language: 'ko', translation: '저장', category: 'common' },
+  { id: 2, key: 'common.cancel', language: 'ko', translation: '취소', category: 'common' },
+  { id: 3, key: 'common.delete', language: 'ko', translation: '삭제', category: 'common' },
+  { id: 4, key: 'common.save', language: 'th', translation: 'บันทึก', category: 'common' },
+  { id: 5, key: 'common.cancel', language: 'th', translation: 'ยกเลิก', category: 'common' },
+  { id: 6, key: 'common.delete', language: 'th', translation: 'ลบ', category: 'common' },
+  { id: 7, key: 'status.open', language: 'ko', translation: '열림', category: 'status' },
+  { id: 8, key: 'status.inProgress', language: 'ko', translation: '진행 중', category: 'status' },
+  { id: 9, key: 'status.resolved', language: 'ko', translation: '해결됨', category: 'status' },
+  { id: 10, key: 'status.open', language: 'th', translation: 'เปิด', category: 'status' },
+  { id: 11, key: 'status.inProgress', language: 'th', translation: 'กำลังดำเนินการ', category: 'status' },
+  { id: 12, key: 'status.resolved', language: 'th', translation: 'แก้ไขแล้ว', category: 'status' }
+];
+
+// 다음 ID 값
+let nextTranslationId = inMemoryTranslationData.length + 1;
+
 // 메모리 캐시 객체
 let translationCache: {
   [key: string]: {
@@ -34,8 +59,8 @@ export async function loadTranslations(): Promise<void> {
     try {
       console.log('번역 데이터 로드 중...');
       
-      // 데이터베이스에서 모든 번역 가져오기
-      const translations = await prisma.translation.findMany();
+      // 인메모리 데이터 사용
+      const translations = inMemoryTranslationData;
       
       // 캐시 초기화
       translationCache = {};
@@ -104,24 +129,24 @@ export async function addTranslation(
   category: string
 ): Promise<void> {
   try {
-    // 데이터베이스에 번역 추가/업데이트
-    await prisma.translation.upsert({
-      where: {
-        key_language: {
-          key,
-          language
-        }
-      },
-      update: {
-        translation
-      },
-      create: {
+    // 기존 번역 확인
+    const existingIndex = inMemoryTranslationData.findIndex(
+      t => t.key === key && t.language === language
+    );
+    
+    if (existingIndex !== -1) {
+      // 기존 번역 업데이트
+      inMemoryTranslationData[existingIndex].translation = translation;
+    } else {
+      // 새 번역 추가
+      inMemoryTranslationData.push({
+        id: nextTranslationId++,
         key,
         language,
         translation,
         category
-      }
-    });
+      });
+    }
     
     // 캐시 업데이트
     if (!translationCache[key]) {

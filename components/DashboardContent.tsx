@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useTranslation } from '../utils/i18n';
+import useTranslation from '../utils/i18n';
 import { Chart as ChartJS, ArcElement, Tooltip, Legend, CategoryScale, LinearScale, BarElement, Title } from 'chart.js';
 import { Pie, Bar } from 'react-chartjs-2';
 import { FiAward, FiTrendingUp, FiAlertCircle, FiCheckCircle, FiClock, FiList } from 'react-icons/fi';
@@ -54,6 +54,24 @@ interface TopResolver {
   resolutionPercentage: number;
 }
 
+// 이슈 생성자 통계 타입 정의
+interface TopCreator {
+  id: number;
+  employeeId: string;
+  name: string;
+  department: string;
+  createdCount: number;
+}
+
+// 이슈 담당자 통계 타입 정의
+interface TopAssignee {
+  id: number;
+  employeeId: string;
+  name: string;
+  department: string;
+  assignedCount: number;
+}
+
 export default function DashboardContent() {
   const { t } = useTranslation();
   
@@ -71,6 +89,8 @@ export default function DashboardContent() {
   const [issuesByCategory, setIssuesByCategory] = useState<{[key: string]: number}>({});
   const [issuesByDepartment, setIssuesByDepartment] = useState<{[key: string]: number}>({});
   const [topResolvers, setTopResolvers] = useState<TopResolver[]>([]);
+  const [topCreators, setTopCreators] = useState<TopCreator[]>([]);
+  const [topAssignees, setTopAssignees] = useState<TopAssignee[]>([]);
   
   // 데이터 로드
   useEffect(() => {
@@ -126,6 +146,18 @@ export default function DashboardContent() {
         if (!topResolversResponse.ok) throw new Error('우수자 데이터를 불러오는데 실패했습니다.');
         const topResolversData = await topResolversResponse.json();
         setTopResolvers(topResolversData.topResolvers);
+        
+        // 이슈 생성자 통계 가져오기
+        const topCreatorsResponse = await fetch('/api/issues/top-creators?limit=5');
+        if (!topCreatorsResponse.ok) throw new Error('생성자 통계를 불러오는데 실패했습니다.');
+        const topCreatorsData = await topCreatorsResponse.json();
+        setTopCreators(topCreatorsData.topCreators);
+
+        // 이슈 담당자 통계 가져오기
+        const topAssigneesResponse = await fetch('/api/issues/top-assignees?limit=3');
+        if (!topAssigneesResponse.ok) throw new Error('담당자 통계를 불러오는데 실패했습니다.');
+        const topAssigneesData = await topAssigneesResponse.json();
+        setTopAssignees(topAssigneesData.topAssignees);
         
       } catch (err) {
         console.error('대시보드 데이터 로드 오류:', err);
@@ -457,12 +489,82 @@ export default function DashboardContent() {
               {recentIssues.length === 0 && (
                 <tr>
                   <td colSpan={6} className="px-6 py-4 text-center text-sm text-gray-500">
-                    최근 이슈가 없습니다.
+                    {t('dashboard.noRecentIssues')}
                   </td>
                 </tr>
               )}
             </tbody>
           </table>
+        </div>
+      </div>
+
+      {/* 이슈 생성자 통계 */}
+      <div className="mt-8">
+        <h2 className="text-xl font-semibold mb-4">이슈 생성자 TOP 5</h2>
+        <div className="bg-white rounded-lg shadow p-6">
+          <div className="h-64">
+            <Bar
+              data={{
+                labels: topCreators.map(creator => `${creator.department} - ${creator.name}`),
+                datasets: [
+                  {
+                    label: '생성한 이슈 수',
+                    data: topCreators.map(creator => creator.createdCount),
+                    backgroundColor: 'rgba(54, 162, 235, 0.6)',
+                    borderColor: 'rgba(54, 162, 235, 1)',
+                    borderWidth: 1,
+                  },
+                ],
+              }}
+              options={{
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                  y: {
+                    beginAtZero: true,
+                    ticks: {
+                      stepSize: 1,
+                    },
+                  },
+                },
+              }}
+            />
+          </div>
+        </div>
+      </div>
+
+      {/* 이슈 담당자 통계 */}
+      <div className="mt-8">
+        <h2 className="text-xl font-semibold mb-4">이슈 담당자 TOP 3</h2>
+        <div className="bg-white rounded-lg shadow p-6">
+          <div className="h-64">
+            <Bar
+              data={{
+                labels: topAssignees.map(assignee => `${assignee.department} - ${assignee.name}`),
+                datasets: [
+                  {
+                    label: '담당 이슈 수',
+                    data: topAssignees.map(assignee => assignee.assignedCount),
+                    backgroundColor: 'rgba(75, 192, 192, 0.6)',
+                    borderColor: 'rgba(75, 192, 192, 1)',
+                    borderWidth: 1,
+                  },
+                ],
+              }}
+              options={{
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                  y: {
+                    beginAtZero: true,
+                    ticks: {
+                      stepSize: 1,
+                    },
+                  },
+                },
+              }}
+            />
+          </div>
         </div>
       </div>
     </div>

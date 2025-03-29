@@ -1,0 +1,1 @@
+const { PrismaClient } = require('@prisma/client'); const prisma = new PrismaClient(); async function main() { console.log('Prisma 스키마 확인 중...'); process.exit(0); } main().catch(e => { console.error(e); process.exit(1); });

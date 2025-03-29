@@ -1,0 +1,41 @@
+-- 부서 데이터 삽입
+INSERT INTO departments (name, label, createdAt, updatedAt)
+VALUES 
+  ('IT', 'IT 부서', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+  ('HR', '인사부', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+  ('FINANCE', '재무부', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+ON CONFLICT (name) DO NOTHING;
+
+-- 상태 데이터 삽입
+INSERT INTO statuses (name, label, createdAt, updatedAt)
+VALUES 
+  ('OPEN', '미해결', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+  ('IN_PROGRESS', '진행중', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+  ('RESOLVED', '해결됨', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+  ('CLOSED', '종료', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+ON CONFLICT (name) DO NOTHING;
+
+-- 우선순위 데이터 삽입
+INSERT INTO priorities (name, label, createdAt, updatedAt)
+VALUES 
+  ('CRITICAL', '심각', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+  ('HIGH', '높음', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+  ('MEDIUM', '중간', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+  ('LOW', '낮음', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+ON CONFLICT (name) DO NOTHING;
+
+-- 카테고리 데이터 삽입
+INSERT INTO categories (name, label, createdAt, updatedAt)
+VALUES 
+  ('BUG', '버그', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+  ('FEATURE', '기능 요청', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+  ('SUPPORT', '지원 요청', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+  ('OTHER', '기타', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+ON CONFLICT (name) DO NOTHING;
+
+-- 관리자 계정 생성 (IT 부서)
+INSERT INTO employees (employeeId, koreanName, isAdmin, departmentId, createdAt, updatedAt)
+VALUES 
+  ('ADMIN', '관리자', TRUE, (SELECT id FROM departments WHERE name = 'IT'), CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+  ('EMP0001', '사용자1', FALSE, (SELECT id FROM departments WHERE name = 'IT'), CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+ON CONFLICT (employeeId) DO NOTHING; 

@@ -2,6 +2,17 @@ import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import { invalidateCache } from '@/lib/i18n/dynamic-translator';
 
+// 임시 번역 데이터 저장소
+const translationsStore: any[] = [
+  { id: 1, key: 'greeting', language: 'ko', translation: '안녕하세요', category: 'common' },
+  { id: 2, key: 'greeting', language: 'th', translation: 'สวัสดี', category: 'common' },
+  { id: 3, key: 'save', language: 'ko', translation: '저장', category: 'actions' },
+  { id: 4, key: 'save', language: 'th', translation: 'บันทึก', category: 'actions' }
+];
+
+// 다음 ID 값 유지
+let nextId = translationsStore.length + 1;
+
 /**
  * 번역 목록 조회 API
  * GET /api/translations
@@ -16,31 +27,26 @@ export async function GET(req: NextRequest) {
     const category = url.searchParams.get('category');
     const key = url.searchParams.get('key');
     
-    // 검색 조건 구성
-    const where: any = {};
+    // 검색 조건에 맞는 번역 필터링
+    let translations = [...translationsStore];
     
     if (language) {
-      where.language = language;
+      translations = translations.filter(t => t.language === language);
     }
     
     if (category) {
-      where.category = category;
+      translations = translations.filter(t => t.category === category);
     }
     
     if (key) {
-      where.key = {
-        contains: key
-      };
+      translations = translations.filter(t => t.key.includes(key));
     }
     
-    // 데이터베이스에서 번역 조회
-    const translations = await prisma.translation.findMany({
-      where,
-      orderBy: [
-        { category: 'asc' },
-        { key: 'asc' },
-        { language: 'asc' }
-      ]
+    // 정렬
+    translations.sort((a, b) => {
+      if (a.category !== b.category) return a.category.localeCompare(b.category);
+      if (a.key !== b.key) return a.key.localeCompare(b.key);
+      return a.language.localeCompare(b.language);
     });
     
     console.log(`${translations.length}개의 번역 데이터 조회됨`);
@@ -70,15 +76,28 @@ export async function POST(req: NextRequest) {
       );
     }
     
+    // 중복 체크
+    const exists = translationsStore.some(
+      t => t.key === data.key && t.language === data.language && t.category === data.category
+    );
+    
+    if (exists) {
+      return NextResponse.json(
+        { error: '이미 존재하는 번역입니다.' },
+        { status: 400 }
+      );
+    }
+    
     // 번역 추가
-    const translation = await prisma.translation.create({
-      data: {
-        key: data.key,
-        language: data.language,
-        translation: data.translation,
-        category: data.category
-      }
-    });
+    const translation = {
+      id: nextId++,
+      key: data.key,
+      language: data.language,
+      translation: data.translation,
+      category: data.category
+    };
+    
+    translationsStore.push(translation);
     
     // 캐시 무효화
     await invalidateCache();
@@ -89,14 +108,6 @@ export async function POST(req: NextRequest) {
       translation
     });
   } catch (error: any) {
-    // 고유 제약 조건 위반 (중복 키) 처리
-    if (error.code === 'P2002') {
-      return NextResponse.json(
-        { error: '이미 존재하는 번역입니다.' },
-        { status: 400 }
-      );
-    }
-    
     console.error('번역 추가 중 오류:', error);
     return NextResponse.json(
       { error: '번역을 추가하는 중 오류가 발생했습니다.' },
@@ -120,11 +131,19 @@ export async function PUT(req: NextRequest) {
       );
     }
     
+    // 번역 찾기
+    const index = translationsStore.findIndex(t => t.id === data.id);
+    
+    if (index === -1) {
+      return NextResponse.json(
+        { error: '해당 번역을 찾을 수 없습니다.' },
+        { status: 404 }
+      );
+    }
+    
     // 번역 업데이트
-    const translation = await prisma.translation.update({
-      where: { id: data.id },
-      data: { translation: data.translation }
-    });
+    translationsStore[index].translation = data.translation;
+    const translation = translationsStore[index];
     
     // 캐시 무효화
     await invalidateCache();
@@ -135,14 +154,6 @@ export async function PUT(req: NextRequest) {
       translation
     });
   } catch (error: any) {
-    // 레코드를 찾을 수 없는 경우 처리
-    if (error.code === 'P2025') {
-      return NextResponse.json(
-        { error: '해당 번역을 찾을 수 없습니다.' },
-        { status: 404 }
-      );
-    }
-    
     console.error('번역 수정 중 오류:', error);
     return NextResponse.json(
       { error: '번역을 수정하는 중 오류가 발생했습니다.' },
@@ -158,19 +169,29 @@ export async function PUT(req: NextRequest) {
 export async function DELETE(req: NextRequest) {
   try {
     const url = new URL(req.url);
-    const id = url.searchParams.get('id');
+    const idParam = url.searchParams.get('id');
     
-    if (!id) {
+    if (!idParam) {
       return NextResponse.json(
         { error: '삭제할 번역 ID가 지정되지 않았습니다.' },
         { status: 400 }
       );
     }
     
+    const id = parseInt(idParam);
+    
+    // 번역 찾기
+    const index = translationsStore.findIndex(t => t.id === id);
+    
+    if (index === -1) {
+      return NextResponse.json(
+        { error: '해당 번역을 찾을 수 없습니다.' },
+        { status: 404 }
+      );
+    }
+    
     // 번역 삭제
-    await prisma.translation.delete({
-      where: { id: parseInt(id) }
-    });
+    translationsStore.splice(index, 1);
     
     // 캐시 무효화
     await invalidateCache();
@@ -180,14 +201,6 @@ export async function DELETE(req: NextRequest) {
       message: '번역이 성공적으로 삭제되었습니다.'
     });
   } catch (error: any) {
-    // 레코드를 찾을 수 없는 경우 처리
-    if (error.code === 'P2025') {
-      return NextResponse.json(
-        { error: '해당 번역을 찾을 수 없습니다.' },
-        { status: 404 }
-      );
-    }
-    
     console.error('번역 삭제 중 오류:', error);
     return NextResponse.json(
       { error: '번역을 삭제하는 중 오류가 발생했습니다.' },

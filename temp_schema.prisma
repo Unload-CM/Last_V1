@@ -1,0 +1,239 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Status {
+  id              Int      @id @default(autoincrement())
+  name            String   @unique
+  label           String
+  thaiLabel       String?
+  description     String?
+  thaiDescription String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  issues          Issue[]
+
+  @@map("statuses")
+}
+
+model Priority {
+  id              Int      @id @default(autoincrement())
+  name            String   @unique
+  label           String
+  thaiLabel       String?
+  description     String?
+  thaiDescription String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  issues          Issue[]
+
+  @@map("priorities")
+}
+
+model Category {
+  id              Int      @id @default(autoincrement())
+  name            String   @unique
+  label           String
+  thaiLabel       String?
+  description     String?
+  thaiDescription String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  issues          Issue[]
+
+  @@map("categories")
+}
+
+model Department {
+  id                Int        @id @default(autoincrement())
+  name              String     @unique
+  label             String
+  thaiLabel         String?
+  description       String?
+  thaiDescription   String?
+  createdAt         DateTime   @default(now())
+  updatedAt         DateTime   @updatedAt
+  issues            Issue[]    @relation("DepartmentIssues")
+  transferredIssues Issue[]    @relation("TransferredIssues")
+  employees         Employee[]
+
+  @@index([name])
+  @@map("departments")
+}
+
+model Employee {
+  id                  Int                 @id @default(autoincrement())
+  employeeId          String              @unique
+  isThai              Boolean             @default(false)
+  thaiName            String?
+  nickname            String?
+  koreanName          String
+  isAdmin             Boolean             @default(false)
+  departmentId        Int
+  createdAt           DateTime            @default(now())
+  updatedAt           DateTime            @updatedAt
+  password            String              @default("0000")
+  assignedIssues      Issue[]             @relation("AssignedIssues")
+  createdIssues       Issue[]             @relation("CreatedIssues")
+  solverIssues        Issue[]             @relation("SolverIssues")
+  uploadedAttachments IssueAttachment[]   @relation("UploaderEmployee")
+  comments            IssueComment[]      @relation("CommentAuthor")
+  issueHistoryChanges IssueHistory[]      @relation("ChangedByEmployee")
+  notifications       IssueNotification[]
+  department          Department          @relation(fields: [departmentId], references: [id])
+
+  @@index([departmentId])
+  @@map("employees")
+}
+
+model ThaiPhrase {
+  id        Int      @id @default(autoincrement())
+  text      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  tags      Tag[]    @relation("PhraseToTag")
+}
+
+model Tag {
+  id        Int          @id @default(autoincrement())
+  name      String       @unique
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
+  phrases   ThaiPhrase[] @relation("PhraseToTag")
+}
+
+model Issue {
+  id                    Int                 @id @default(autoincrement())
+  title                 String
+  description           String?
+  createdAt             DateTime            @default(now())
+  updatedAt             DateTime            @updatedAt
+  dueDate               DateTime?
+  assigneeId            Int?
+  departmentId          Int
+  transferredFromDeptId Int?
+  statusId              Int
+  priorityId            Int
+  categoryId            Int
+  createdById           Int?
+  solverId              Int?
+  assignee              Employee?           @relation("AssignedIssues", fields: [assigneeId], references: [id])
+  category              Category            @relation(fields: [categoryId], references: [id])
+  creator               Employee?           @relation("CreatedIssues", fields: [createdById], references: [id])
+  department            Department          @relation("DepartmentIssues", fields: [departmentId], references: [id])
+  priority              Priority            @relation(fields: [priorityId], references: [id])
+  solver                Employee?           @relation("SolverIssues", fields: [solverId], references: [id])
+  status                Status              @relation(fields: [statusId], references: [id])
+  transferredFromDept   Department?         @relation("TransferredIssues", fields: [transferredFromDeptId], references: [id])
+  attachments           IssueAttachment[]
+  comments              IssueComment[]
+  history               IssueHistory[]
+  notifications         IssueNotification[]
+
+  @@index([createdById])
+  @@index([assigneeId])
+  @@index([solverId])
+  @@index([departmentId])
+  @@index([statusId])
+  @@index([priorityId])
+}
+
+model IssueHistory {
+  id                Int               @id @default(autoincrement())
+  createdAt         DateTime          @default(now())
+  issueId           Int
+  changedById       Int
+  changeType        String
+  actionTaken       String?
+  newData           Json?
+  preventiveMeasure String?
+  previousData      Json?
+  resolutionNote    String?
+  rootCause         String?
+  summary           String
+  updatedAt         DateTime          @updatedAt
+  attachments       IssueAttachment[]
+  comments          IssueComment[]
+  changedBy         Employee          @relation("ChangedByEmployee", fields: [changedById], references: [id])
+  issue             Issue             @relation(fields: [issueId], references: [id], onDelete: Cascade)
+
+  @@index([issueId])
+  @@index([changedById])
+}
+
+model IssueComment {
+  id          Int                      @id @default(autoincrement())
+  content     String
+  createdAt   DateTime                 @default(now())
+  updatedAt   DateTime                 @updatedAt
+  issueId     Int
+  authorId    Int
+  historyId   Int?
+  author      Employee                 @relation("CommentAuthor", fields: [authorId], references: [id])
+  history     IssueHistory?            @relation(fields: [historyId], references: [id])
+  issue       Issue                    @relation(fields: [issueId], references: [id], onDelete: Cascade)
+  attachments IssueCommentAttachment[]
+
+  @@index([issueId])
+  @@index([historyId])
+  @@index([authorId])
+}
+
+model IssueAttachment {
+  id            Int           @id @default(autoincrement())
+  fileName      String
+  fileUrl       String
+  fileType      String?
+  fileSize      Int?
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+  issueId       Int
+  description   String?
+  historyId     Int?
+  thumbnailPath String?
+  uploaderId    Int?
+  history       IssueHistory? @relation(fields: [historyId], references: [id])
+  issue         Issue         @relation(fields: [issueId], references: [id], onDelete: Cascade)
+  uploader      Employee?     @relation("UploaderEmployee", fields: [uploaderId], references: [id])
+
+  @@index([issueId])
+  @@index([historyId])
+  @@index([uploaderId])
+}
+
+model IssueCommentAttachment {
+  id            Int          @id @default(autoincrement())
+  fileName      String
+  fileUrl       String
+  fileType      String?
+  fileSize      Int?
+  description   String?
+  thumbnailPath String?
+  createdAt     DateTime     @default(now())
+  commentId     Int
+  comment       IssueComment @relation(fields: [commentId], references: [id], onDelete: Cascade)
+
+  @@index([commentId])
+}
+
+model IssueNotification {
+  id         Int      @id @default(autoincrement())
+  createdAt  DateTime @default(now())
+  issueId    Int
+  employeeId Int
+  type       String
+  isRead     Boolean  @default(false)
+  message    String
+  employee   Employee @relation(fields: [employeeId], references: [id])
+  issue      Issue    @relation(fields: [issueId], references: [id])
+
+  @@index([issueId])
+  @@index([employeeId])
+  @@index([isRead])
+}
+

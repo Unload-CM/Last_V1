@@ -24,12 +24,13 @@ const DEFAULT_TRANSLATIONS: TranslationsType = {
     'employees.isThaiDescription': '태국 국적 직원인 경우 체크해주세요',
     'employees.namePlaceholder': '이름을 입력하세요',
     'employees.departmentPlaceholder': '부서를 선택하세요',
-    'employees.searchPlaceholder': '이름, 부서, 태국어 이름, 닉네임으로 검색',
+    'employees.searchPlaceholder': '사원번호, 이름, 부서, 태국어 이름으로 검색',
     'employees.addNew': '직원 추가',
     'employees.noEmployees': '등록된 직원이 없습니다',
     'employees.actions': '관리',
     'common.add': '추가',
-    'common.cancel': '취소'
+    'common.cancel': '취소',
+    'issues.pleaseEnterComment': '댓글을 입력하세요'
   },
   th: {
     'employees.title': 'จัดการพนักงาน',
@@ -44,12 +45,16 @@ const DEFAULT_TRANSLATIONS: TranslationsType = {
     'employees.isThaiDescription': 'เลือกถ้าเป็นพนักงานสัญชาติไทย',
     'employees.namePlaceholder': 'กรุณากรอกชื่อ',
     'employees.departmentPlaceholder': 'กรุณาเลือกแผนก',
-    'employees.searchPlaceholder': 'ค้นหาด้วยชื่อ แผนก ชื่อไทย หรือชื่อเล่น',
+    'employees.searchPlaceholder': 'ค้นหาด้วยรหัสพนักงาน ชื่อ แผนก หรือชื่อไทย',
     'employees.addNew': 'เพิ่มพนักงาน',
     'employees.noEmployees': 'ไม่มีพนักงาน',
     'employees.actions': 'จัดการ',
     'common.add': 'เพิ่ม',
-    'common.cancel': 'ยกเลิก'
+    'common.cancel': 'ยกเลิก',
+    'issues.pleaseEnterComment': 'กรุณาใส่ข้อความ'
+  },
+  en: {
+    'issues.pleaseEnterComment': 'Please enter a comment'
   }
 };
 
@@ -85,7 +90,13 @@ export const departmentTranslationsThai = {
   'logistics': 'คลังสินค้า',
   'engineering': 'แผนกวิจัยและพัฒนา',
   'management': 'แผนกบริหาร',
-  'entertainment': 'แผนกสันทนาการ'
+  'entertainment': 'แผนกสันทนาการ',
+  '생산부': 'แผนกผลิต',
+  '품질관리부': 'แผนกควบคุมคุณภาพ',
+  '물류창고': 'คลังสินค้า',
+  '연구개발부': 'แผนกวิจัยและพัฒนา',
+  '경영지원부': 'แผนกบริหาร',
+  '오락부': 'แผนกสันทนาการ'
 };
 
 // 부서 영어 키로 변환
@@ -126,7 +137,8 @@ export const positionToKey: Record<string, string> = {
 export const employeeTranslations = {
   'title': '사원 관리',
   'addNew': '신규 등록',
-  'searchPlaceholder': '이름, 부서, 직책으로 검색',
+  'searchPlaceholder': '사원번호, 이름, 부서, 태국어 이름으로 검색',
+  'employeeId': '사원번호로 검색',
   'id': '사원번호',
   'name': '이름',
   'department': '부서',

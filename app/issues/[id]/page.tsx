@@ -11,169 +11,22 @@ import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { ArrowLeft, Edit, Trash2 } from 'lucide-react';
-import Navigation from '@/components/Navigation';
 import IssueComments from "@/components/issues/IssueComments";
 import IssueAttachments from "@/components/issues/IssueAttachments";
 import IssueHistory from "@/components/issues/IssueHistory";
+import useTranslation from '@/utils/i18n';
+import { useMediaQuery } from 'react-responsive';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter
+} from '@/components/ui/dialog';
+import { useSession } from 'next-auth/react';
 
-// 간단한 날짜 포맷 함수
-function formatDate(dateString: string) {
-  const date = new Date(dateString);
-  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
-}
-
-// 시간 포맷 함수 추가
-function formatTime(dateString: string) {
-  const date = new Date(dateString);
-  return `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
-}
-
-// 날짜와 시간 모두 포맷
-function formatDateTime(dateString: string) {
-  return `${formatDate(dateString)} ${formatTime(dateString)}`;
-}
-
-// 상태에 따른 색상 스타일
-function getStatusColor(status: string) {
-  switch (status) {
-    case '미해결':
-      return 'bg-red-100 text-red-800';
-    case '진행중':
-      return 'bg-blue-100 text-blue-800';
-    case '해결됨':
-      return 'bg-green-100 text-green-800';
-    default:
-      return 'bg-gray-100 text-gray-800';
-  }
-}
-
-// 우선순위에 따른 색상 스타일
-function getPriorityColor(priority: string) {
-  switch (priority) {
-    case '높음':
-      return 'bg-red-100 text-red-800';
-    case '중간':
-      return 'bg-yellow-100 text-yellow-800';
-    case '낮음':
-      return 'bg-green-100 text-green-800';
-    default:
-      return 'bg-gray-100 text-gray-800';
-  }
-}
-
-// 상태 배지 스타일 함수
-const getStatusBadgeStyle = (status: string) => {
-  const upperStatus = status.toUpperCase();
-  switch (upperStatus) {
-    case 'OPEN':
-    case '미해결':
-      return 'bg-red-100 text-red-800';
-    case 'IN_PROGRESS':
-    case '진행중':
-      return 'bg-yellow-100 text-yellow-800';
-    case 'RESOLVED':
-    case '해결됨':
-      return 'bg-green-100 text-green-800';
-    case 'CLOSED':
-    case '종료':
-      return 'bg-gray-100 text-gray-800';
-    default:
-      return 'bg-gray-100 text-gray-800';
-  }
-};
-
-// 우선순위 배지 스타일 함수
-const getPriorityBadgeStyle = (priority: string) => {
-  const upperPriority = priority.toUpperCase();
-  switch (upperPriority) {
-    case 'CRITICAL':
-    case '심각':
-      return 'bg-red-100 text-red-800';
-    case 'HIGH':
-    case '높음':
-      return 'bg-orange-100 text-orange-800';
-    case 'MEDIUM':
-    case '중간':
-      return 'bg-yellow-100 text-yellow-800';
-    case 'LOW':
-    case '낮음':
-      return 'bg-green-100 text-green-800';
-    default:
-      return 'bg-gray-100 text-gray-800';
-  }
-};
-
-// 상태 레이블 함수
-const getStatusLabel = (status: string) => {
-  const upperStatus = status.toUpperCase();
-  switch (upperStatus) {
-    case 'OPEN':
-      return '미해결';
-    case 'IN_PROGRESS':
-      return '진행중';
-    case 'RESOLVED':
-      return '해결됨';
-    case 'CLOSED':
-      return '종료';
-    default:
-      return status;
-  }
-};
-
-// 우선순위 레이블 함수
-const getPriorityLabel = (priority: string) => {
-  const upperPriority = priority.toUpperCase();
-  switch (upperPriority) {
-    case 'CRITICAL':
-      return '심각';
-    case 'HIGH':
-      return '높음';
-    case 'MEDIUM':
-      return '중간';
-    case 'LOW':
-      return '낮음';
-    default:
-      return priority;
-  }
-};
-
-// 파일 미리보기 컴포넌트
-const FilePreview = ({ file, openImageModal }: { file: any, openImageModal: (url: string) => void }) => {
-  if (!file || !file.url) {
-    return <div className="text-red-500">파일을 찾을 수 없습니다.</div>;
-  }
-
-  if (file.type?.startsWith('image/')) {
-    return (
-      <div className="relative group">
-        <img
-          src={file.url}
-          alt={file.caption || '이미지'}
-          className="w-full h-auto rounded-lg shadow-sm cursor-pointer transition-transform hover:scale-105"
-          onClick={() => openImageModal(file.url)}
-          onError={(e) => {
-            const target = e.target as HTMLImageElement;
-            target.onerror = null;
-            target.src = '/placeholder-image.png'; // 기본 이미지로 대체
-          }}
-        />
-        {file.caption && (
-          <div className="mt-2 text-sm text-gray-600">{file.caption}</div>
-        )}
-      </div>
-    );
-  } else if (file.type?.startsWith('video/')) {
-    return (
-      <VideoPlayer
-        src={file.url}
-        type={file.type}
-        caption={file.caption}
-      />
-    );
-  }
-  return <div className="text-gray-500">지원하지 않는 파일 형식입니다.</div>;
-};
-
+// 타입 정의
 interface Issue {
   id: number;
   title: string;
@@ -181,6 +34,11 @@ interface Issue {
   createdAt: string;
   updatedAt: string;
   dueDate?: string;
+  creator?: {
+    id: number;
+    koreanName: string;
+    employeeId?: string;
+  };
   assignee?: {
     id: number;
     koreanName: string;
@@ -190,9 +48,10 @@ interface Issue {
       id: number;
       name: string;
       label: string;
+      thaiLabel?: string;
     };
   };
-  previousAssignee?: {
+  solver?: {
     id: number;
     koreanName: string;
     thaiName?: string;
@@ -201,63 +60,62 @@ interface Issue {
       id: number;
       name: string;
       label: string;
+      thaiLabel?: string;
     };
   };
   department: {
     id: number;
     name: string;
     label: string;
+    thaiLabel?: string;
   };
   transferredFromDept?: {
     id: number;
     name: string;
     label: string;
+    thaiLabel?: string;
   };
   status: {
     id: number;
     name: string;
     label: string;
+    thaiLabel?: string;
   };
   priority: {
     id: number;
     name: string;
     label: string;
+    thaiLabel?: string;
   };
   category: {
     id: number;
     name: string;
     label: string;
+    thaiLabel?: string;
   };
-  history: Array<{
+  attachments?: Array<{
     id: number;
-    changeType: string;
-    previousValue: string | null;
-    newValue: string;
+    fileName: string;
+    fileUrl: string;
+    fileType: string;
+    fileSize: number;
     createdAt: string;
-    changedBy: {
+    uploader?: {
       id: number;
       koreanName: string;
       thaiName?: string;
       nickname?: string;
     };
   }>;
-  notifications: Array<{
-    id: number;
-    type: string;
-    message: string;
-    isRead: boolean;
-    createdAt: string;
-    employee: {
-      id: number;
-      koreanName: string;
-      thaiName?: string;
-      nickname?: string;
-    };
-  }>;
+  history?: any[];
+  notifications?: any[];
 }
 
-export default function IssuePage({ params }: { params: { id: string } }) {
+export default function IssuePage() {
+  const { t, language } = useTranslation();
+  const params = useParams() as { id: string };
   const router = useRouter();
+  const { data: session } = useSession();
   const [issue, setIssue] = useState<Issue | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
@@ -277,82 +135,416 @@ export default function IssuePage({ params }: { params: { id: string } }) {
   }>>([]);
   const [isStatusChanging, setIsStatusChanging] = useState<boolean>(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  // 모바일 환경 감지
+  const isMobile = useMediaQuery({ maxWidth: 768 });
+
+  // 유틸리티 함수들
+  // 간단한 날짜 포맷 함수
+  const formatDate = (dateString: string | null | undefined) => {
+    if (!dateString) return '-';
+    
+    // 유효한 날짜인지 확인
+    const date = new Date(dateString);
+    if (isNaN(date.getTime())) {
+      console.warn('유효하지 않은 날짜 형식:', dateString);
+      return '-';
+    }
+    
+    return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+  };
+
+  // 시간 포맷 함수
+  const formatTime = (dateString: string | null | undefined) => {
+    if (!dateString) return '-';
+    
+    // 유효한 날짜인지 확인
+    const date = new Date(dateString);
+    if (isNaN(date.getTime())) {
+      console.warn('유효하지 않은 날짜 형식:', dateString);
+      return '-';
+    }
+    
+    return `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
+  };
+
+  // 날짜와 시간 모두 포맷 - 유효성 검사 추가
+  const formatDateTime = (dateString: string | null | undefined) => {
+    if (!dateString) return '-';
+    
+    // 유효한 날짜인지 확인
+    const date = new Date(dateString);
+    if (isNaN(date.getTime())) {
+      console.warn('유효하지 않은 날짜 형식:', dateString);
+      return '-';
+    }
+    
+    return `${formatDate(dateString)} ${formatTime(dateString)}`;
+  };
+
+  // 상태 레이블 함수
+  const getStatusLabel = (status: string) => {
+    const upperStatus = status.toUpperCase();
+    switch (upperStatus) {
+      case 'OPEN':
+        return t('status.open');
+      case 'IN_PROGRESS':
+        return t('status.in_progress');
+      case 'RESOLVED':
+        return t('status.resolved');
+      case 'CLOSED':
+        return t('status.closed');
+      default:
+        return status;
+    }
+  };
+
+  // 우선순위 레이블 함수
+  const getPriorityLabel = (priority: string) => {
+    const upperPriority = priority.toUpperCase();
+    switch (upperPriority) {
+      case 'CRITICAL':
+        return t('priority.critical');
+      case 'HIGH':
+        return t('priority.high');
+      case 'MEDIUM':
+        return t('priority.medium');
+      case 'LOW':
+        return t('priority.low');
+      default:
+        return priority;
+    }
+  };
+
+  // 상태에 따른 색상 스타일
+  const getStatusColor = (status: string) => {
+    switch (status.toLowerCase()) {
+      case 'open':
+      case '미해결':
+        return 'bg-blue-500';
+      case 'in_progress':
+      case '진행중':
+        return 'bg-yellow-500';
+      case 'resolved':
+      case '해결됨':
+        return 'bg-green-500';
+      case 'closed':
+      case '종료':
+        return 'bg-gray-500';
+      default:
+        return 'bg-gray-500';
+    }
+  };
+
+  // 우선순위에 따른 색상 스타일
+  const getPriorityColor = (priority: string) => {
+    switch (priority.toLowerCase()) {
+      case 'critical':
+      case '심각':
+        return 'bg-red-500';
+      case 'high':
+      case '높음':
+        return 'bg-orange-500';
+      case 'medium':
+      case '중간':
+        return 'bg-blue-500';
+      case 'low':
+      case '낮음':
+        return 'bg-green-500';
+      default:
+        return 'bg-gray-500';
+    }
+  };
+
+  // 상태 배지 스타일 함수
+  const getStatusBadgeStyle = (status: string) => {
+    const upperStatus = status.toUpperCase();
+    switch (upperStatus) {
+      case 'OPEN':
+      case '미해결':
+        return 'bg-red-100 text-red-800';
+      case 'IN_PROGRESS':
+      case '진행중':
+        return 'bg-yellow-100 text-yellow-800';
+      case 'RESOLVED':
+      case '해결됨':
+        return 'bg-green-100 text-green-800';
+      case 'CLOSED':
+      case '종료':
+        return 'bg-gray-100 text-gray-800';
+      default:
+        return 'bg-gray-100 text-gray-800';
+    }
+  };
+
+  // 우선순위 배지 스타일 함수
+  const getPriorityBadgeStyle = (priority: string) => {
+    const upperPriority = priority.toUpperCase();
+    switch (upperPriority) {
+      case 'CRITICAL':
+      case '심각':
+        return 'bg-red-100 text-red-800';
+      case 'HIGH':
+      case '높음':
+        return 'bg-orange-100 text-orange-800';
+      case 'MEDIUM':
+      case '중간':
+        return 'bg-blue-100 text-blue-800';
+      case 'LOW':
+      case '낮음':
+        return 'bg-green-100 text-green-800';
+      default:
+        return 'bg-gray-100 text-gray-800';
+    }
+  };
+
+  // 파일 미리보기 컴포넌트
+  const FilePreview = ({ file, openImageModal }: { file: any, openImageModal: (url: string) => void }) => {
+    if (!file || !file.url) {
+      return <div className="text-red-500">{t('issues.fileNotFound')}</div>;
+    }
+
+    if (file.type?.startsWith('image/')) {
+      return (
+        <div className="relative group">
+          <img
+            src={file.url}
+            alt={file.caption || t('issues.image')}
+            className="w-full h-auto rounded-lg shadow-sm cursor-pointer transition-transform hover:scale-105"
+            onClick={() => openImageModal(file.url)}
+            onError={(e) => {
+              const target = e.target as HTMLImageElement;
+              target.onerror = null;
+              target.src = '/placeholder-image.png'; // 기본 이미지로 대체
+            }}
+          />
+          {file.caption && (
+            <div className="mt-2 text-sm text-gray-600">{file.caption}</div>
+          )}
+        </div>
+      );
+    } else if (file.type?.startsWith('video/')) {
+      return (
+        <VideoPlayer
+          src={file.url}
+          type={file.type}
+          caption={file.caption}
+        />
+      );
+    }
+    return <div className="text-gray-500">{t('issues.unsupportedFileType')}</div>;
+  };
+
+  // 현재 언어에 맞는 부서 이름 표시 함수
+  const getDepartmentDisplayName = (dept: any) => {
+    if (!dept) return '-';
+    
+    // 디버깅용 로그 추가
+    console.log('부서 표시 함수 호출됨:', {
+      language,
+      dept,
+      name: dept.name,
+      label: dept.label,
+      thaiLabel: dept.thaiLabel
+    });
+    
+    if (language === 'en') return dept.name;
+    if (language === 'th') {
+      // dept 객체에 thaiLabel이 있는지 확인
+      if (dept.thaiLabel) {
+        console.log(`부서 ${dept.name}의 thaiLabel 사용:`, dept.thaiLabel);
+        return dept.thaiLabel;
+      }
+      
+      // 없으면 translations에서 가져오기 시도
+      try {
+        const { departmentTranslationsThai } = require('@/lib/i18n/translations');
+        if (departmentTranslationsThai[dept.name]) {
+          console.log(`부서 ${dept.name}의 번역 찾음:`, departmentTranslationsThai[dept.name]);
+          return departmentTranslationsThai[dept.name];
+        }
+      } catch (e) {
+        console.error('번역 데이터 가져오기 오류:', e);
+      }
+      
+      // 둘 다 없으면 기본 라벨 사용
+      console.log(`부서 ${dept.name}의 한글 라벨로 폴백:`, dept.label);
+      return dept.label;
+    }
+    return dept.label; // 기본값 한국어
+  };
+
+  // 상태 표시명 가져오기
+  const getStatusDisplayName = (status: any) => {
+    if (!status) return '-';
+    if (language === 'en') return status.name;
+    if (language === 'th') return status.thaiLabel || status.label;
+    return status.label; // 기본값 한국어
+  };
+  
+  // 우선순위 표시명 가져오기
+  const getPriorityDisplayName = (priority: any) => {
+    if (!priority) return '-';
+    if (language === 'en') return priority.name;
+    if (language === 'th') return priority.thaiLabel || priority.label;
+    return priority.label; // 기본값 한국어
+  };
+  
+  // 카테고리 표시명 가져오기
+  const getCategoryDisplayName = (category: any) => {
+    if (!category) return '-';
+    if (language === 'en') return category.name;
+    if (language === 'th') return category.thaiLabel || category.label;
+    return category.label; // 기본값 한국어
+  };
 
   useEffect(() => {
     const fetchIssue = async () => {
+      if (!params || !params.id) {
+        router.push('/issues');
+        return;
+      }
+
       try {
-        const response = await fetch(`/api/issues/${params.id}`);
+        console.log('[디버그] 이슈 상세 정보 요청:', params.id);
+        const response = await fetch(`/api/issues/${params.id}?lang=${language}`);
+        console.log('[디버그] 응답 상태:', response.status, response.statusText);
+
         if (!response.ok) {
           throw new Error('이슈를 불러오는데 실패했습니다.');
         }
+
         const data = await response.json();
-        setIssue(data.issue);
-      } catch (error) {
-        console.error('Error fetching issue:', error);
-        toast.error('이슈를 불러오는데 실패했습니다.');
+        console.log('[디버그] 이슈 데이터:', data);
+        console.log('[디버그] 이슈 데이터 구조:', {
+          id: data?.id,
+          hasStatus: !!data?.status,
+          statusName: data?.status?.name,
+          hasPriority: !!data?.priority,
+          priorityName: data?.priority?.name,
+          attachments: data?.attachments?.length || '없음'
+        });
+
+        // 여기서 issue에 데이터 설정
+        setIssue(data);
+      } catch (err) {
+        console.error('이슈 상세 정보 조회 중 오류:', err);
+        setError('이슈를 불러오는데 실패했습니다.');
       } finally {
         setIsLoading(false);
       }
     };
 
     fetchIssue();
-  }, [params.id]);
 
+    // 관리자 여부 확인
+    const isAdminUser = localStorage.getItem('adminUser') === 'true';
+    setIsAdmin(isAdminUser);
+
+    // 코멘트 로드
+    const loadComments = async () => {
+      const issueId = params?.id;
+      if (!issueId) return;
+      
+      try {
+        const response = await fetch(`/api/issues/${issueId}/comments`);
+        if (response.ok) {
+          const data = await response.json();
+          setComments(data);
+        }
+      } catch (err) {
+        console.error('댓글 로딩 오류:', err);
+      }
+    };
+
+    // 관리자 코멘트 로드
+    const loadAdminComments = () => {
+      const issueId = params?.id;
+      if (!issueId) return;
+      
+      const savedComments = localStorage.getItem(`adminComments_${issueId}`);
+      if (savedComments) {
+        try {
+          setAdminComments(JSON.parse(savedComments));
+        } catch (e) {
+          console.error('관리자 코멘트 파싱 오류:', e);
+        }
+      }
+    };
+
+    loadComments();
+    loadAdminComments();
+  }, [params, router]);
+
+  // 이슈 삭제 핸들러
   const handleDelete = async () => {
-    if (!confirm('이 이슈를 삭제하시겠습니까?')) {
+    if (!issue) {
+      toast.error(t('issues.notFound'));
+      return;
+    }
+    
+    // 디버깅용 로그 추가
+    console.log('삭제 권한 확인:', {
+      sessionUserId: session?.user?.id,
+      creatorInfo: issue.creator,
+      creatorId: issue.creator?.id,
+      isCreator: issue.creator?.id === Number(session?.user?.id)
+    });
+    
+    // 세션 정보 확인
+    if (!session?.user?.id) {
+      toast.error(t('issues.loginRequired'));
+      return;
+    }
+    
+    // 이슈의 작성자인지 확인 (ID로 비교)
+    const hasDeletePermission = issue.creator?.id === Number(session.user.id);
+    
+    if (!hasDeletePermission) {
+      toast.error(t('issues.onlyCreatorCanDelete'));
+      return;
+    }
+    
+    // 이슈를 삭제할 권한이 있는 경우 삭제 확인 모달 표시
+    setShowDeleteModal(true);
+  };
+
+  // 삭제 확인 후 실제 삭제 처리
+  const confirmDelete = async () => {
+    if (!issue) {
+      toast.error(t('issues.notFound'));
+      setShowDeleteModal(false);
       return;
     }
 
     try {
-      const response = await fetch(`/api/issues?id=${params.id}`, {
-        method: 'DELETE'
+      setIsDeleting(true);
+      const response = await fetch(`/api/issues/${issue.id}`, {
+        method: 'DELETE',
       });
 
-      if (!response.ok) {
-        throw new Error('이슈 삭제에 실패했습니다.');
+      if (response.ok) {
+        toast.success(t('issues.deleteSuccess'));
+        router.push('/issues');
+      } else {
+        const errorData = await response.json();
+        toast.error(errorData.error || t('issues.deleteFailed'));
       }
-
-      toast.success('이슈가 삭제되었습니다.');
-      router.push('/issues');
     } catch (error) {
-      console.error('Error deleting issue:', error);
-      toast.error('이슈 삭제에 실패했습니다.');
-    }
-  };
-
-  const getPriorityColor = (priority: string) => {
-    switch (priority.toLowerCase()) {
-      case 'high':
-        return 'bg-red-500';
-      case 'medium':
-        return 'bg-yellow-500';
-      case 'low':
-        return 'bg-green-500';
-      default:
-        return 'bg-gray-500';
-    }
-  };
-
-  const getStatusColor = (status: string) => {
-    switch (status.toLowerCase()) {
-      case 'open':
-        return 'bg-blue-500';
-      case 'in_progress':
-        return 'bg-yellow-500';
-      case 'resolved':
-        return 'bg-green-500';
-      case 'closed':
-        return 'bg-gray-500';
-      default:
-        return 'bg-gray-500';
+      console.error('이슈 삭제 중 오류 발생:', error);
+      toast.error(t('issues.deleteFailed'));
+    } finally {
+      setIsDeleting(false);
+      setShowDeleteModal(false);
     }
   };
 
   if (isLoading) {
     return (
       <div className="container mx-auto p-6">
-        <Navigation />
-        <div className="text-center py-8">로딩 중...</div>
+        <div className="text-center py-8">{t('common.loading')}</div>
       </div>
     );
   }
@@ -360,176 +552,249 @@ export default function IssuePage({ params }: { params: { id: string } }) {
   if (!issue) {
     return (
       <div className="container mx-auto p-6">
-        <Navigation />
-        <div className="text-center py-8">이슈를 찾을 수 없습니다.</div>
+        <div className="text-center py-8">{t('issues.notFound')}</div>
       </div>
     );
   }
 
   return (
     <div className="container mx-auto py-6">
-      <Navigation />
       <div className="grid gap-6">
-        <Card className="p-6">
-          <Suspense fallback={<div>이슈 정보를 불러오는 중...</div>}>
+        <Card className={isMobile ? "p-3" : "p-6"}>
+          <Suspense fallback={<div>{t('common.loading')}</div>}>
             <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
-                <div className="space-y-2">
-                  <div className="flex items-center space-x-2">
+              <CardHeader className={isMobile ? "px-3 py-3 pb-2" : "pb-4"}>
+                <div className="flex flex-col space-y-4">
+                  <div className="flex items-center justify-between">
                     <Button
                       variant="ghost"
-                      size="icon"
+                      size="sm"
                       onClick={() => router.push('/issues')}
+                      className="p-1"
                     >
                       <ArrowLeft className="h-4 w-4" />
                     </Button>
-                    <CardTitle className="text-2xl font-bold">{issue.title}</CardTitle>
+
+                    <div className="flex space-x-2">
+                      <Button
+                        variant="outline"
+                        size={isMobile ? "sm" : "default"}
+                        onClick={() => router.push(`/issues/${issue.id}/edit`)}
+                      >
+                        <Edit className="h-4 w-4 mr-1" />
+                        {t('common.edit')}
+                      </Button>
+                      
+                      {/* 이슈 작성자만 삭제 버튼 활성화, 아닌 경우 비활성화된 버튼과 툴팁 표시 */}
+                      {(() => {
+                        // 콘솔에 creator 정보 출력
+                        console.log('삭제 버튼 렌더링:', {
+                          sessionUserId: session?.user?.id,
+                          creatorInfo: issue.creator,
+                          creatorId: issue.creator?.id,
+                          isCreator: issue.creator?.id === Number(session?.user?.id)
+                        });
+                        
+                        // creator가 없는 경우(API에서 정보를 제대로 가져오지 못한 경우) 혹은 작성자인 경우 - 버튼 활성화
+                        const canDeleteIssue = !issue.creator || (session?.user?.id && issue.creator?.id === Number(session.user.id));
+                        
+                        if (canDeleteIssue) {
+                          return (
+                            <Button 
+                              variant="destructive"
+                              size={isMobile ? "sm" : "default"}
+                              onClick={handleDelete}
+                            >
+                              <Trash2 className="h-4 w-4 mr-1" />
+                              {t('common.delete')}
+                            </Button>
+                          );
+                        } else {
+                          return (
+                            <Button 
+                              variant="destructive"
+                              size={isMobile ? "sm" : "default"}
+                              disabled={true}
+                              title={t('issues.onlyCreatorCanDelete')}
+                            >
+                              <Trash2 className="h-4 w-4 mr-1" />
+                              {t('common.delete')}
+                            </Button>
+                          );
+                        }
+                      })()}
+                    </div>
                   </div>
-                  <div className="flex items-center space-x-2 text-sm text-muted-foreground">
-                    <span>생성일: {format(new Date(issue.createdAt), 'yyyy-MM-dd HH:mm')}</span>
-                    <span>•</span>
-                    <span>수정일: {format(new Date(issue.updatedAt), 'yyyy-MM-dd HH:mm')}</span>
-                    {issue.dueDate && (
-                      <>
-                        <span>•</span>
-                        <span>마감일: {format(new Date(issue.dueDate), 'yyyy-MM-dd')}</span>
-                      </>
-                    )}
+
+                  <div>
+                    <CardTitle className={`${isMobile ? "text-xl" : "text-2xl"} font-bold mb-2`}>
+                      {issue.title}
+                    </CardTitle>
+                    <p className="text-gray-600 text-sm whitespace-pre-line">
+                      {issue.description || t('issues.noDescription')}
+                    </p>
                   </div>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <Button
-                    variant="outline"
-                    onClick={() => router.push(`/issues/${issue.id}/edit`)}
-                  >
-                    <Edit className="h-4 w-4 mr-2" />
-                    수정
-                  </Button>
-                  <Button variant="destructive" onClick={handleDelete}>
-                    <Trash2 className="h-4 w-4 mr-2" />
-                    삭제
-                  </Button>
                 </div>
               </CardHeader>
-              <CardContent className="space-y-6">
-                {/* 상태 정보 */}
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                  <div className="space-y-1">
-                    <div className="text-sm font-medium text-muted-foreground">상태</div>
-                    <Badge className={getStatusColor(issue.status.name)}>
-                      {issue.status.label}
-                    </Badge>
-                  </div>
-                  <div className="space-y-1">
-                    <div className="text-sm font-medium text-muted-foreground">우선순위</div>
-                    <Badge className={getPriorityColor(issue.priority.name)}>
-                      {issue.priority.label}
-                    </Badge>
-                  </div>
-                  <div className="space-y-1">
-                    <div className="text-sm font-medium text-muted-foreground">카테고리</div>
-                    <div>{issue.category.label}</div>
-                  </div>
-                  <div className="space-y-1">
-                    <div className="text-sm font-medium text-muted-foreground">부서</div>
-                    <div>{issue.department.label}</div>
-                    {issue.transferredFromDept && (
-                      <div className="text-sm text-muted-foreground">
-                        이전: {issue.transferredFromDept.label}
+              
+              <CardContent className={isMobile ? "px-2 py-2" : ""}>
+                {/* 1. 날짜 정보 (Created Date, Updated At, Due Date) */}
+                <div className={`mb-4 ${isMobile ? "text-sm" : ""}`}>
+                  <div className={`
+                    p-3 bg-gray-50 rounded-lg
+                    ${isMobile 
+                      ? "flex flex-col space-y-2" 
+                      : "grid grid-cols-3 gap-4"}
+                  `}>
+                    <div className={isMobile 
+                      ? "flex items-center justify-between"
+                      : "flex items-center"
+                    }>
+                      <span className="font-medium text-gray-700">{t('issues.createdAt')}: </span>
+                      <span className="ml-2">{formatDateTime(issue.createdAt)}</span>
+                    </div>
+                    <div className={isMobile 
+                      ? "flex items-center justify-between"
+                      : "flex items-center justify-center"
+                    }>
+                      <span className="font-medium text-gray-700">{t('issues.updatedAt')}: </span>
+                      <span className="ml-2">{formatDateTime(issue.updatedAt)}</span>
+                    </div>
+                    {issue.dueDate && (
+                      <div className={isMobile 
+                        ? "flex items-center justify-between"
+                        : "flex items-center justify-end"
+                      }>
+                        <span className="font-medium text-gray-700">{t('issues.dueDate')}: </span>
+                        <span className="ml-2">{formatDateTime(issue.dueDate)}</span>
                       </div>
                     )}
                   </div>
                 </div>
 
-                {/* 담당자 정보 */}
-                <div className="space-y-2">
-                  <div className="text-sm font-medium text-muted-foreground">담당자</div>
-                  {issue.assignee ? (
-                    <div className="flex flex-col">
-                      <span>{issue.assignee.koreanName}</span>
-                      {issue.assignee.thaiName && (
-                        <span className="text-sm text-muted-foreground">
-                          {issue.assignee.thaiName}
-                          {issue.assignee.nickname && ` (${issue.assignee.nickname})`}
-                        </span>
-                      )}
-                      <span className="text-sm text-muted-foreground">
-                        {issue.assignee.department.label}
-                      </span>
+                {/* 2. 상태, 우선순위, 카테고리, 부서 정보 */}
+                <div className={`mb-4 ${isMobile ? "text-sm" : ""}`}>
+                  <div className={`
+                    p-3 bg-gray-50 rounded-lg
+                    ${isMobile ? "grid grid-cols-1 gap-3" : "flex"}
+                  `}>
+                    <div className={`${!isMobile && "flex-1 border-r-2 border-gray-300 px-4"} flex justify-between items-center`}>
+                      <span className="font-medium text-gray-700">{t('issues.status')}:</span>
+                      <div className={`inline-block px-2 py-1 rounded-full text-white text-sm ${getStatusColor(issue.status.name)}`}>
+                        {getStatusDisplayName(issue.status)}
+                      </div>
                     </div>
-                  ) : (
-                    <span className="text-muted-foreground">미지정</span>
-                  )}
-                  {issue.previousAssignee && (
-                    <div className="text-sm text-muted-foreground">
-                      이전 담당자: {issue.previousAssignee.koreanName}
-                      {issue.previousAssignee.thaiName && ` (${issue.previousAssignee.thaiName})`}
-                    </div>
-                  )}
-                </div>
 
-                {/* 설명 */}
-                <div className="space-y-2">
-                  <div className="text-sm font-medium text-muted-foreground">설명</div>
-                  <div className="prose max-w-none">
-                    {issue.description || <span className="text-muted-foreground">설명 없음</span>}
+                    <div className={`${!isMobile && "flex-1 border-r-2 border-gray-300 px-4"} flex justify-between items-center`}>
+                      <span className="font-medium text-gray-700">{t('issues.priority')}:</span>
+                      <div className={`inline-block px-2 py-1 rounded-full text-white text-sm ${getPriorityColor(issue.priority?.name || '')}`}>
+                        {getPriorityDisplayName(issue.priority)}
+                      </div>
+                    </div>
+
+                    <div className={`${!isMobile && "flex-1 border-r-2 border-gray-300 px-4"} flex justify-between items-center`}>
+                      <span className="font-medium text-gray-700">{t('issues.category')}:</span>
+                      <span className="ml-2">{getCategoryDisplayName(issue.category)}</span>
+                    </div>
+
+                    <div className={`${!isMobile && "flex-1 px-4"} flex justify-between items-center`}>
+                      <span className="font-medium text-gray-700">{t('issues.department')}:</span>
+                      <span className="ml-2">{getDepartmentDisplayName(issue.department)}</span>
+                    </div>
                   </div>
                 </div>
 
-                {/* 이력 */}
-                {issue.history.length > 0 && (
-                  <div className="space-y-2">
-                    <div className="text-sm font-medium text-muted-foreground">변경 이력</div>
-                    <div className="space-y-2">
-                      {issue.history.map((history) => (
-                        <div
-                          key={history.id}
-                          className="flex items-center justify-between text-sm border-b pb-2"
-                        >
-                          <div>
-                            <span className="font-medium">{history.changedBy.koreanName}</span>
-                            <span className="text-muted-foreground">님이 </span>
-                            {history.changeType === 'ASSIGNEE_CHANGE' && '담당자를 '}
-                            {history.changeType === 'DEPARTMENT_TRANSFER' && '부서를 '}
-                            {history.previousValue && (
-                              <>
-                                <span className="text-muted-foreground">{history.previousValue}에서 </span>
-                              </>
-                            )}
-                            <span>{history.newValue}</span>
-                            <span className="text-muted-foreground">
-                              {history.changeType === 'ASSIGNEE_CHANGE' && '(으)로 변경'}
-                              {history.changeType === 'DEPARTMENT_TRANSFER' && '(으)로 이관'}
-                            </span>
-                          </div>
-                          <div className="text-muted-foreground">
-                            {format(new Date(history.createdAt), 'yyyy-MM-dd HH:mm')}
-                          </div>
+                {/* Issue Finder와 Issue Resolver 정보 */}
+                <div className="mb-4">
+                  <div className={`p-3 bg-gray-50 rounded-lg ${isMobile ? "space-y-3" : ""}`}>
+                    <div className={`grid ${isMobile ? "grid-cols-1 gap-3" : "grid-cols-2 gap-4"}`}>
+                      <div className="overflow-hidden">
+                        <div className="font-medium text-gray-700 mb-1">{t('issues.assignedTo')}</div>
+                        <div className={`${isMobile ? "text-sm" : ""} truncate`}>
+                          {issue.assignee ? (
+                            <>
+                              {issue.assignee.koreanName}
+                              {issue.assignee.thaiName && ` (${issue.assignee.thaiName})`}
+                              {issue.assignee.nickname && ` - ${issue.assignee.nickname}`}
+                              {` | ${getDepartmentDisplayName(issue.assignee.department)}`}
+                            </>
+                          ) : (
+                            <span className="text-gray-500">{t('issues.unassigned')}</span>
+                          )}
                         </div>
-                      ))}
+                      </div>
+                      
+                      <div className="overflow-hidden">
+                        <div className="font-medium text-gray-700 mb-1">{t('issues.solver')}</div>
+                        <div className={`${isMobile ? "text-sm" : ""} truncate`}>
+                          {issue.solver ? (
+                            <>
+                              {issue.solver.koreanName}
+                              {issue.solver.thaiName && ` (${issue.solver.thaiName})`}
+                              {issue.solver.nickname && ` - ${issue.solver.nickname}`}
+                              {` | ${getDepartmentDisplayName(issue.solver.department)}`}
+                            </>
+                          ) : (
+                            <span className="text-gray-500">{t('issues.unassigned')}</span>
+                          )}
+                        </div>
+                      </div>
                     </div>
                   </div>
-                )}
+                </div>
+
+                <div className="mb-4">
+                  <Card className={isMobile ? "border shadow-sm" : ""}>
+                    <CardContent className={isMobile ? "p-2" : ""}>
+                      <IssueAttachments 
+                        issueId={issue.id} 
+                        initialAttachments={issue.attachments || []}
+                      />
+                    </CardContent>
+                  </Card>
+                </div>
+
+                <div className="mb-4">
+                  <IssueComments issueId={issue.id} />
+                </div>
+
+                <div>
+                  <h3 className={`${isMobile ? "text-base" : "text-lg"} font-medium mb-2`}>{t('issues.history.title')}</h3>
+                  <IssueHistory issueId={issue.id} />
+                </div>
               </CardContent>
             </Card>
           </Suspense>
         </Card>
-
-        <Card className="p-6">
-          <h2 className="text-xl font-semibold mb-4">이슈 히스토리</h2>
-          <IssueHistory issueId={parseInt(params.id)} />
-        </Card>
-
-        <Card className="p-6">
-          <h2 className="text-xl font-semibold mb-4">첨부 파일</h2>
-          <IssueAttachments issueId={parseInt(params.id)} />
-        </Card>
-
-        <Card className="p-6">
-          <h2 className="text-xl font-semibold mb-4">댓글</h2>
-          <IssueComments issueId={parseInt(params.id)} />
-        </Card>
       </div>
+      
+      {/* 삭제 확인 다이얼로그 */}
+      <Dialog open={showDeleteModal} onOpenChange={setShowDeleteModal}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>{t('issues.confirmDelete')}</DialogTitle>
+            <DialogDescription>
+              {t('issues.confirmDeleteMessage')}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="flex justify-end space-x-2 pt-4">
+            <Button 
+              variant="outline" 
+              onClick={() => setShowDeleteModal(false)}
+              disabled={isDeleting}
+            >
+              {t('common.cancel')}
+            </Button>
+            <Button 
+              variant="destructive" 
+              onClick={confirmDelete}
+              disabled={isDeleting}
+            >
+              {isDeleting ? t('common.deleting') : t('common.delete')}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

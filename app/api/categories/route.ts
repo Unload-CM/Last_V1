@@ -1,7 +1,30 @@
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '../../../lib/prisma';
-import { translateCategory, getCategoryKey } from '@/lib/i18n';
 import { convertKoreanToEnglishKey, createTranslationEntry } from '../../../lib/utils/translation-helper';
+
+// 카테고리 정보를 선택된 언어로 번역하는 함수
+function translateCategory(category: any, language: string = 'ko') {
+  if (!category) return null;
+
+  return {
+    ...category,
+    label: language === 'th' ? category.thaiLabel || category.label : category.label,
+    description: language === 'th' ? category.thaiDescription || category.description : category.description
+  };
+}
+
+// 카테고리명을 영문 키로 변환하는 함수
+function getCategoryKey(name: string): string {
+  const categoryKeys: { [key: string]: string } = {
+    '품질': 'quality',
+    '생산': 'production',
+    '설비': 'maintenance',
+    '안전': 'safety',
+    '기타': 'etc'
+  };
+
+  return categoryKeys[name] || name.toLowerCase();
+}
 
 // 기본 카테고리 데이터
 const DEFAULT_CATEGORIES = [
@@ -83,35 +106,35 @@ export async function POST(req: NextRequest) {
     
     console.log('생성된 카테고리:', category);
     
-    // 번역 데이터 추가
-    try {
-      // 카테고리 이름 번역 저장
-      await prisma.translation.create({
-        data: {
-          key: data.label, // 카테고리 접두사 없이 label 값만 사용
-          language: 'ko', // 나중에 언어 감지로 변경 가능
-          translation: data.name,
-          category: 'category'
-        }
-      });
-      console.log('번역 추가 완료:', data.label, '->', data.name);
+    // 번역 데이터 추가 (Translation 모델이 없으므로 주석 처리)
+    // try {
+    //   // 카테고리 이름 번역 저장
+    //   await prisma.translation.create({
+    //     data: {
+    //       key: data.label, // 카테고리 접두사 없이 label 값만 사용
+    //       language: 'ko', // 나중에 언어 감지로 변경 가능
+    //       translation: data.name,
+    //       category: 'category'
+    //     }
+    //   });
+    //   console.log('번역 추가 완료:', data.label, '->', data.name);
       
-      // 설명이 있으면 설명도 번역 저장
-      if (data.description) {
-        await prisma.translation.create({
-          data: {
-            key: `${data.label}_description`, // 설명은 구분을 위해 _description 접미사
-            language: 'ko', // 나중에 언어 감지로 변경 가능
-            translation: data.description,
-            category: 'category_description'
-          }
-        });
-        console.log('설명 번역 추가 완료:', `${data.label}_description`, '->', data.description);
-      }
-    } catch (translationError) {
-      console.error('번역 데이터 추가 중 오류:', translationError);
-      // 번역 추가 실패해도 카테고리 생성은 계속 진행
-    }
+    //   // 설명이 있으면 설명도 번역 저장
+    //   if (data.description) {
+    //     await prisma.translation.create({
+    //       data: {
+    //         key: `${data.label}_description`, // 설명은 구분을 위해 _description 접미사
+    //         language: 'ko', // 나중에 언어 감지로 변경 가능
+    //         translation: data.description,
+    //         category: 'category_description'
+    //       }
+    //     });
+    //     console.log('설명 번역 추가 완료:', `${data.label}_description`, '->', data.description);
+    //   }
+    // } catch (translationError) {
+    //   console.error('번역 데이터 추가 중 오류:', translationError);
+    //   // 번역 추가 실패해도 카테고리 생성은 계속 진행
+    // }
     
     return NextResponse.json({
       success: true,
@@ -243,44 +266,45 @@ export async function PUT(req: NextRequest) {
       }
     });
     
-    // Translation 테이블 업데이트
-    await prisma.translation.upsert({
-      where: {
-        key_language: {
-          key: englishKey,
-          language: 'ko'
-        }
-      },
-      update: {
-        translation: name
-      },
-      create: {
-        key: englishKey,
-        language: 'ko',
-        translation: name,
-        category: 'category'
-      }
-    });
+    // Translation 테이블 업데이트 (Translation 모델이 없으므로 주석 처리)
+    // await prisma.translation.upsert({
+    //   where: {
+    //     key_language: {
+    //       key: englishKey,
+    //       language: 'ko'
+    //     }
+    //   },
+    //   update: {
+    //     translation: name
+    //   },
+    //   create: {
+    //     key: englishKey,
+    //     language: 'ko',
+    //     translation: name,
+    //     category: 'category'
+    //   }
+    // });
     
-    if (description) {
-      await prisma.translation.upsert({
-        where: {
-          key_language: {
-            key: `${englishKey}_description`,
-            language: 'ko'
-          }
-        },
-        update: {
-          translation: description
-        },
-        create: {
-          key: `${englishKey}_description`,
-          language: 'ko',
-          translation: description,
-          category: 'category_description'
-        }
-      });
-    }
+    // // 설명이 있으면 설명도 번역 저장
+    // if (description) {
+    //   await prisma.translation.upsert({
+    //     where: {
+    //       key_language: {
+    //         key: `${englishKey}_description`,
+    //         language: 'ko'
+    //       }
+    //     },
+    //     update: {
+    //       translation: description
+    //     },
+    //     create: {
+    //       key: `${englishKey}_description`,
+    //       language: 'ko',
+    //       translation: description,
+    //       category: 'category_description'
+    //     }
+    //   });
+    // }
     
     return NextResponse.json({
       success: true,

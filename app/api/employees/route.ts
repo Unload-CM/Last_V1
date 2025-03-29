@@ -34,14 +34,27 @@ async function generateNextEmployeeId(): Promise<string> {
  * GET /api/employees
  * Query Parameters:
  * - departmentId: 부서 ID (선택)
+ * - isAdmin: 관리자 여부 (선택)
  */
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     const departmentId = searchParams.get('departmentId');
+    const isAdmin = searchParams.get('isAdmin');
+    const lang = searchParams.get('lang') || 'en';  // 기본값은 영어
 
     // 검색 조건 설정
-    const where = departmentId ? { departmentId: parseInt(departmentId) } : {};
+    let where: any = {};
+    
+    if (departmentId) {
+      where.departmentId = parseInt(departmentId);
+    }
+    
+    if (isAdmin === 'true') {
+      where.isAdmin = true;
+    } else if (isAdmin === 'false') {
+      where.isAdmin = false;
+    }
 
     const employees = await prisma.employee.findMany({
       where,
@@ -60,12 +73,24 @@ export async function GET(request: NextRequest) {
       }
     });
 
-    return NextResponse.json({ 
-      employees,
-      message: employees.length === 0 ? '등록된 직원이 없습니다.' : undefined
-    });
+    // 언어에 따라 적절한 필드 선택하여 반환
+    const formattedEmployees = employees.map(employee => ({
+      ...employee,
+      displayName: lang === 'ko' ? `${employee.employeeId} (${employee.koreanName})` :
+                  lang === 'th' ? `${employee.employeeId} (${employee.thaiName} - ${employee.nickname})` :
+                  `${employee.employeeId} (${employee.nickname})`,
+      department: {
+        ...employee.department,
+        displayName: lang === 'ko' ? employee.department.label :
+                    lang === 'th' ? (employee.department.thaiLabel || employee.department.label) :
+                    employee.department.name
+      }
+    }));
+
+    // 직원 배열 반환
+    return NextResponse.json(formattedEmployees);
   } catch (error) {
-    console.error('Error fetching employees:', error);
+    console.error('직원 목록 조회 오류:', error);
     return NextResponse.json(
       { error: '직원 목록을 불러오는데 실패했습니다.' },
       { status: 500 }
@@ -80,6 +105,8 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const data = await request.json();
+    console.log('새 직원 등록 데이터:', data);
+    
     const employee = await prisma.employee.create({
       data: {
         employeeId: data.employeeId,
@@ -87,7 +114,8 @@ export async function POST(request: NextRequest) {
         isThai: data.isThai,
         thaiName: data.thaiName,
         nickname: data.nickname,
-        departmentId: parseInt(data.departmentId)
+        departmentId: parseInt(data.departmentId),
+        isAdmin: data.isAdmin || false
       },
       include: {
         department: true
@@ -142,12 +170,14 @@ export async function DELETE(request: NextRequest) {
 export async function PUT(request: NextRequest) {
   try {
     const body = await request.json();
+    console.log('직원 정보 수정 데이터:', body);
+    
     const { 
       id,
+      koreanName,
       isThai,
       thaiName,
       nickname,
-      koreanName,
       isAdmin,
       departmentId
     } = body;
@@ -173,21 +203,32 @@ export async function PUT(request: NextRequest) {
     }
 
     // 직원 정보 수정
+    console.log('업데이트할 내용:', {
+      id: Number(id),
+      koreanName,
+      isThai,
+      thaiName: isThai ? thaiName : null,
+      nickname: nickname,
+      departmentId,
+      isAdmin: isAdmin || false
+    });
+    
     const updatedEmployee = await prisma.employee.update({
       where: { id: Number(id) },
       data: {
+        koreanName,
         isThai,
         thaiName: isThai ? thaiName : null,
-        nickname: isThai ? nickname : null,
-        koreanName,
-        isAdmin,
-        departmentId
+        nickname: nickname,
+        departmentId,
+        isAdmin: isAdmin || false
       },
       include: {
         department: true
       }
     });
 
+    console.log('업데이트 성공:', updatedEmployee);
     return NextResponse.json(updatedEmployee);
   } catch (error) {
     console.error('직원 수정 중 오류:', error);

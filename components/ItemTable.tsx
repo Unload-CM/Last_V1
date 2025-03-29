@@ -1,5 +1,4 @@
 import useTranslation from "@/utils/i18n";
-import { formatDepartmentsForUI } from "@/lib/i18n/index";
 import { Button } from "@/components/ui/button";
 import { FiEdit2, FiTrash } from 'react-icons/fi';
 

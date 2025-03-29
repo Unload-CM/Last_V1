@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from "@/lib/prisma";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
 
 // 타입 정의
 interface IssueSummary {
@@ -113,175 +115,429 @@ const SAMPLE_MONTHLY_TREND = [
   { month: '6월', open: 5, inProgress: 7, resolved: 8, total: 20 }
 ];
 
+// 유효한 날짜 형식인지 확인하는 함수
+function isValidDate(dateString: string): boolean {
+  const date = new Date(dateString);
+  const valid = !isNaN(date.getTime());
+  console.log(`날짜 유효성 검사: ${dateString} => ${valid ? '유효' : '유효하지 않음'}`);
+  return valid;
+}
+
 /**
  * 대시보드 데이터 조회 API
  * GET /api/dashboard
  */
 export async function GET(request: NextRequest) {
   try {
-    // 1. 이슈 통계
-    const totalIssues = await prisma.issue.count();
+    const session = await getServerSession(authOptions);
+    if (!session?.user) {
+      return NextResponse.json(
+        { error: "인증되지 않은 사용자입니다." },
+        { status: 401 }
+      );
+    }
 
-    // 상태별 이슈 수
-    const statusCounts = await prisma.issue.groupBy({
-      by: ["statusId"],
-      _count: {
-        id: true,
-      },
-    });
+    const url = new URL(request.url);
+    const fromParam = url.searchParams.get('from'); 
+    const toParam = url.searchParams.get('to');
+    
+    // 언어 파라미터 가져오기
+    const langParam = url.searchParams.get('lang') || 'ko';
+    console.log(`[dashboard/route] 언어 설정: ${langParam}, 타입: ${typeof langParam}`);
 
-    // 상태 정보 조회
-    const statuses = await prisma.status.findMany();
-    const statusMap = new Map(
-      statuses.map((status) => [status.id, status.label])
-    );
+    // 날짜 범위 설정
+    let fromDate: Date, toDate: Date;
+    
+    if (fromParam && isValidDate(fromParam)) {
+      fromDate = new Date(fromParam);
+      console.log(`fromDate 파싱 결과: ${fromDate.toISOString()}`);
+    } else {
+      // 기본값: 이번 달 1일
+      fromDate = new Date();
+      fromDate.setDate(1);
+      fromDate.setHours(0, 0, 0, 0);
+      console.log(`fromDate 기본값 설정: ${fromDate.toISOString()}`);
+    }
+    
+    if (toParam && isValidDate(toParam)) {
+      toDate = new Date(toParam);
+      // 이미 ISO 형식의 경우 시간 정보가 포함되어 있으므로 확인 후 설정
+      if (toParam.includes('T')) {
+        console.log(`toDate에 이미 시간 정보 포함: ${toDate.toISOString()}`);
+      } else {
+        // 날짜 범위를 해당 일의 끝까지 포함
+        toDate.setHours(23, 59, 59, 999);
+        console.log(`toDate에 시간 정보 추가: ${toDate.toISOString()}`);
+      }
+    } else {
+      // 기본값: 오늘
+      toDate = new Date();
+      toDate.setHours(23, 59, 59, 999);
+      console.log(`toDate 기본값 설정: ${toDate.toISOString()}`);
+    }
 
-    // 우선순위별 이슈 수
-    const priorityCounts = await prisma.issue.groupBy({
-      by: ["priorityId"],
-      _count: {
-        id: true,
-      },
-    });
-
-    // 우선순위 정보 조회
-    const priorities = await prisma.priority.findMany();
-    const priorityMap = new Map(
-      priorities.map((priority) => [priority.id, priority.label])
-    );
-
-    // 부서별 이슈 수
-    const departmentCounts = await prisma.issue.groupBy({
-      by: ["departmentId"],
-      _count: {
-        id: true,
-      },
-    });
-
-    // 부서 정보 조회
-    const departments = await prisma.department.findMany();
-    const departmentMap = new Map(
-      departments.map((dept) => [dept.id, dept.label])
-    );
-
-    // 2. 최근 생성된 이슈
-    const recentIssues = await prisma.issue.findMany({
-      take: 5,
-      orderBy: {
-        createdAt: "desc",
-      },
-      include: {
-        department: {
-          select: {
-            name: true,
-            label: true,
-          },
-        },
-        status: {
-          select: {
-            name: true,
-            label: true,
-          },
-        },
-        priority: {
-          select: {
-            name: true,
-            label: true,
-          },
-        },
-        category: {
-          select: {
-            name: true,
-            label: true,
-          },
-        },
-      },
-    });
-
-    // 3. 마감일이 임박한 이슈
-    const upcomingDueIssues = await prisma.issue.findMany({
+    // 이슈 상태별 통계 (날짜 필터 적용)
+    const openIssues = await prisma.issue.count({
       where: {
-        dueDate: {
-          gte: new Date(),
-          lte: new Date(new Date().setDate(new Date().getDate() + 7)), // 7일 이내
-        },
-        statusId: {
-          notIn: [3, 4], // 해결됨, 종료 상태가 아닌 것 (ID를 적절히 수정)
-        },
-      },
-      take: 5,
-      orderBy: {
-        dueDate: "asc",
-      },
-      include: {
-        department: {
-          select: {
-            name: true,
-            label: true,
-          },
-        },
         status: {
-          select: {
-            name: true,
-            label: true,
-          },
+          name: "OPEN"
         },
-        priority: {
-          select: {
-            name: true,
-            label: true,
-          },
-        },
-      },
+        createdAt: {
+          gte: fromDate,
+          lte: toDate
+        }
+      }
     });
 
-    // 4. 월별 이슈 생성 수
-    const currentYear = new Date().getFullYear();
-    const monthlyIssueCreation = await Promise.all(
-      Array.from({ length: 12 }, async (_, i) => {
-        const startDate = new Date(currentYear, i, 1);
-        const endDate = new Date(currentYear, i + 1, 0);
+    const inProgressIssues = await prisma.issue.count({
+      where: {
+        status: {
+          name: "IN_PROGRESS"
+        },
+        createdAt: {
+          gte: fromDate,
+          lte: toDate
+        }
+      }
+    });
 
+    const resolvedIssues = await prisma.issue.count({
+      where: {
+        status: {
+          name: "RESOLVED"
+        },
+        createdAt: {
+          gte: fromDate,
+          lte: toDate
+        }
+      }
+    });
+
+    const closedIssues = await prisma.issue.count({
+      where: {
+        status: {
+          name: "CLOSED"
+        },
+        createdAt: {
+          gte: fromDate,
+          lte: toDate
+        }
+      }
+    });
+
+    // 상태별 분포 (날짜 필터 적용)
+    const statusCounts = await prisma.issue.groupBy({
+      by: ['statusId'],
+      where: {
+        createdAt: {
+          gte: fromDate,
+          lte: toDate
+        }
+      },
+      _count: {
+        id: true
+      }
+    });
+
+    const statuses = await prisma.status.findMany({
+      select: {
+        id: true,
+        name: true,
+        label: true,
+        thaiLabel: true
+      }
+    });
+
+    const formattedStatusDistribution = statuses.map(status => {
+      const countData = statusCounts.find(s => s.statusId === status.id);
+      // 언어에 따라 적절한 필드 선택
+      let displayName;
+      if (langParam === 'en') {
+        displayName = status.name;
+      } else if (langParam === 'th') {
+        displayName = status.thaiLabel || status.label;
+        console.log(`Status ID ${status.id}: thaiLabel=${status.thaiLabel}, label=${status.label}, 사용된 이름=${displayName}`);
+      } else {
+        displayName = status.label;
+      }
+      
+      return {
+        id: status.id,
+        name: displayName,
+        count: countData ? countData._count.id : 0
+      };
+    });
+
+    // 우선순위별 분포 (날짜 필터 적용)
+    const priorityCounts = await prisma.issue.groupBy({
+      by: ['priorityId'],
+      where: {
+        createdAt: {
+          gte: fromDate,
+          lte: toDate
+        }
+      },
+      _count: {
+        id: true
+      }
+    });
+
+    const priorities = await prisma.priority.findMany({
+      select: {
+        id: true,
+        name: true,
+        label: true,
+        thaiLabel: true
+      }
+    });
+
+    const formattedPriorityDistribution = priorities.map(priority => {
+      const countData = priorityCounts.find(p => p.priorityId === priority.id);
+      // 언어에 따라 적절한 필드 선택
+      let displayName;
+      if (langParam === 'en') {
+        displayName = priority.name;
+      } else if (langParam === 'th') {
+        displayName = priority.thaiLabel || priority.label;
+        console.log(`Priority ID ${priority.id}: thaiLabel=${priority.thaiLabel}, label=${priority.label}, 사용된 이름=${displayName}`);
+      } else {
+        displayName = priority.label;
+      }
+      
+      return {
+        id: priority.id,
+        name: displayName,
+        count: countData ? countData._count.id : 0
+      };
+    });
+
+    // 부서별 분포 (날짜 필터 적용)
+    const departmentCounts = await prisma.issue.groupBy({
+      by: ['departmentId'],
+      where: {
+        createdAt: {
+          gte: fromDate,
+          lte: toDate
+        }
+      },
+      _count: {
+        id: true
+      }
+    });
+
+    const departments = await prisma.department.findMany({
+      select: {
+        id: true,
+        name: true,
+        label: true,
+        thaiLabel: true
+      }
+    });
+
+    const formattedDepartmentDistribution = departments.map(department => {
+      const countData = departmentCounts.find(d => d.departmentId === department.id);
+      // 언어에 따라 적절한 필드 선택
+      let displayName;
+      if (langParam === 'en') {
+        displayName = department.name;
+      } else if (langParam === 'th') {
+        displayName = department.thaiLabel || department.label;
+        console.log(`Department ID ${department.id}: thaiLabel=${department.thaiLabel}, label=${department.label}, 사용된 이름=${displayName}`);
+      } else {
+        displayName = department.label;
+      }
+      
+      return {
+        id: department.id,
+        name: displayName,
+        count: countData ? countData._count.id : 0
+      };
+    });
+
+    // 카테고리별 분포 (날짜 필터 적용)
+    const categoryCounts = await prisma.issue.groupBy({
+      by: ['categoryId'],
+      where: {
+        createdAt: {
+          gte: fromDate,
+          lte: toDate
+        }
+      },
+      _count: {
+        id: true
+      }
+    });
+
+    const categories = await prisma.category.findMany({
+      select: {
+        id: true,
+        name: true,
+        label: true
+      }
+    });
+
+    const formattedCategoryDistribution = categories.map(category => {
+      const countData = categoryCounts.find(c => c.categoryId === category.id);
+      return {
+        id: category.id,
+        name: category.label,
+        count: countData ? countData._count.id : 0
+      };
+    });
+
+    // 월별 이슈 생성 통계 (연도-월 기준으로 필터링)
+    const fromYear = fromDate.getFullYear();
+    const fromMonth = fromDate.getMonth() + 1;
+    const toYear = toDate.getFullYear();
+    const toMonth = toDate.getMonth() + 1;
+    
+    // 필터링된 기간의 모든 월 생성
+    const months: Array<{year: number, month: number}> = [];
+    for (let year = fromYear; year <= toYear; year++) {
+      const startMonth = (year === fromYear) ? fromMonth : 1;
+      const endMonth = (year === toYear) ? toMonth : 12;
+      
+      for (let month = startMonth; month <= endMonth; month++) {
+        months.push({ year, month });
+      }
+    }
+    
+    // 각 월의 이슈 통계 준비
+    const monthlyIssueCreation = await Promise.all(
+      months.map(async ({ year, month }) => {
+        const startDate = new Date(year, month - 1, 1);
+        const endDate = new Date(year, month, 0);
+        
         const count = await prisma.issue.count({
           where: {
             createdAt: {
               gte: startDate,
-              lte: endDate,
-            },
-          },
+              lte: endDate
+            }
+          }
         });
-
+        
         return {
-          month: i + 1,
-          count,
+          month,
+          year,
+          count: count || 0
         };
       })
     );
 
-    // 응답 데이터 구성
-    const dashboardData = {
-      totalIssues,
-      statusDistribution: statusCounts.map((item) => ({
-        id: item.statusId,
-        name: statusMap.get(item.statusId) || "알 수 없음",
-        count: item._count.id,
-      })),
-      priorityDistribution: priorityCounts.map((item) => ({
-        id: item.priorityId,
-        name: priorityMap.get(item.priorityId) || "알 수 없음",
-        count: item._count.id,
-      })),
-      departmentDistribution: departmentCounts.map((item) => ({
-        id: item.departmentId,
-        name: departmentMap.get(item.departmentId) || "알 수 없음",
-        count: item._count.id,
-      })),
-      recentIssues,
-      upcomingDueIssues,
-      monthlyIssueCreation,
-    };
+    // 최근 생성된 이슈 가져오기
+    const recentIssues = await prisma.issue.findMany({
+      take: 5,
+      orderBy: {
+        createdAt: 'desc'
+      },
+      include: {
+        department: {
+          select: {
+            id: true,
+            name: true,
+            label: true,
+            thaiLabel: true
+          }
+        },
+        status: {
+          select: {
+            id: true,
+            name: true,
+            label: true,
+            thaiLabel: true
+          }
+        },
+        priority: {
+          select: {
+            id: true,
+            name: true,
+            label: true,
+            thaiLabel: true
+          }
+        },
+        category: {
+          select: {
+            id: true,
+            name: true,
+            label: true,
+            thaiLabel: true
+          }
+        },
+        // 이슈 발견자 (assignee)
+        assignee: {
+          select: {
+            id: true,
+            employeeId: true,
+            koreanName: true,
+            thaiName: true,
+            nickname: true,
+            department: {
+              select: {
+                id: true,
+                name: true,
+                label: true,
+                thaiLabel: true
+              }
+            }
+          }
+        },
+        // 이슈 해결자 (solver)
+        solver: {
+          select: {
+            id: true,
+            employeeId: true,
+            koreanName: true,
+            thaiName: true,
+            nickname: true,
+            department: {
+              select: {
+                id: true,
+                name: true,
+                label: true,
+                thaiLabel: true
+              }
+            }
+          }
+        },
+        // 이슈 작성자
+        creator: {
+          select: {
+            id: true,
+            employeeId: true,
+            koreanName: true,
+            thaiName: true,
+            nickname: true,
+            department: {
+              select: {
+                id: true,
+                name: true,
+                label: true
+              }
+            }
+          }
+        }
+      }
+    });
 
-    return NextResponse.json(dashboardData);
+    return NextResponse.json({
+      totalIssues: openIssues + inProgressIssues + resolvedIssues + closedIssues,
+      openIssuesCount: openIssues,
+      inProgressIssuesCount: inProgressIssues,
+      resolvedIssuesCount: resolvedIssues,
+      closedIssuesCount: closedIssues,
+      statusDistribution: formattedStatusDistribution,
+      priorityDistribution: formattedPriorityDistribution,
+      departmentDistribution: formattedDepartmentDistribution,
+      categoryDistribution: formattedCategoryDistribution,
+      monthlyIssueCreation,
+      dateFilter: {
+        from: fromDate.toISOString(),
+        to: toDate.toISOString()
+      },
+      recentIssues: recentIssues,
+      upcomingDueIssues: []
+    });
   } catch (error) {
     console.error("대시보드 데이터 조회 중 오류 발생:", error);
     return NextResponse.json(

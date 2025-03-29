@@ -1,9 +1,8 @@
 'use client';
 
 import { ReactNode } from 'react';
-
-console.log('Providers loaded');
+import { SessionProvider } from 'next-auth/react';
 
 export function Providers({ children }: { children: ReactNode }) {
-  return <>{children}</>;
+  return <SessionProvider>{children}</SessionProvider>;
 } 

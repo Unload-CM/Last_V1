@@ -1,0 +1,447 @@
+﻿
+'use client';
+
+import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+import { 
+  Card, 
+  CardContent, 
+  CardHeader, 
+  CardTitle, 
+  CardDescription 
+} from '@/components/ui/card';
+import { 
+  BarChart, 
+  Bar, 
+  PieChart, 
+  Pie, 
+  Cell, 
+  ResponsiveContainer, 
+  XAxis, 
+  YAxis, 
+  Tooltip, 
+  Legend 
+} from 'recharts';
+import { toast } from 'sonner';
+import { format } from 'date-fns';
+import { ko } from 'date-fns/locale';
+import Link from 'next/link';
+import { 
+  AlertCircle, 
+  Briefcase,
+  Clock,
+  CalendarClock,
+  BarChart2,
+  PieChart as PieChartIcon,
+  ArrowRight,
+  MessageSquare
+} from 'lucide-react';
+import TopCommenters from '@/components/dashboard/TopCommenters';
+
+// ?됱긽 諛곗뿴
+const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8', '#82ca9d', '#ffc658', '#8dd1e1'];
+
+export default function Dashboard() {
+  const router = useRouter();
+  const [dashboardData, setDashboardData] = useState<any | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchDashboardData = async () => {
+      try {
+        setIsLoading(true);
+        const response = await fetch('/api/dashboard');
+        if (!response.ok) {
+          throw new Error('??쒕낫???곗씠?곕? 遺덈윭?ㅻ뒗???ㅽ뙣?덉뒿?덈떎.');
+        }
+        const data = await response.json();
+        setDashboardData(data);
+      } catch (error) {
+        console.error('??쒕낫???곗씠??濡쒕뵫 以??ㅻ쪟:', error);
+        toast.error('??쒕낫???곗씠?곕? 遺덈윭?ㅻ뒗???ㅽ뙣?덉뒿?덈떎.');
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchDashboardData();
+  }, []);
+
+  if (isLoading) {
+    return (
+      <div className="container mx-auto py-6">
+        <div className="text-center py-10">
+          <div className="inline-block animate-spin rounded-full h-8 w-8 border-4 border-solid border-primary 
+border-r-transparent align-middle"></div>
+          <p className="mt-2">??쒕낫???곗씠??濡쒕뵫 以?..</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!dashboardData) {
+    return (
+      <div className="container mx-auto py-6">
+        <div className="text-center py-10">
+          <AlertCircle className="mx-auto h-10 w-10 text-red-500" />
+          <p className="mt-2">??쒕낫???곗씠?곕? 遺덈윭?ㅻ뒗???ㅽ뙣?덉뒿?덈떎.</p>
+        </div>
+      </div>
+    );
+  }
+
+  // 李⑦듃???ъ슜???곗씠???뺤떇?쇰줈 蹂??
+  const statusData = dashboardData.statusDistribution.map((item: any) => ({
+    name: item.name,
+    value: item.count,
+  }));
+
+  const priorityData = dashboardData.priorityDistribution.map((item: any) => ({
+    name: item.name,
+    value: item.count,
+  }));
+
+  const departmentData = dashboardData.departmentDistribution.map((item: any) => ({
+    name: item.name,
+    value: item.count,
+  }));
+
+  // ?붾퀎 ?곗씠?곌? ?녿뒗 寃쎌슦 鍮?諛곗뿴濡?泥섎━
+  const monthlyData = dashboardData.monthlyIssueCreation ? 
+    dashboardData.monthlyIssueCreation.map((item: any) => ({
+      name: `${item.month}??,
+      ?댁뒋: item.count,
+    })) : 
+    [
+      { name: '1??, ?댁뒋: 0 },
+      { name: '2??, ?댁뒋: 0 },
+      { name: '3??, ?댁뒋: 0 },
+      { name: '4??, ?댁뒋: 0 },
+      { name: '5??, ?댁뒋: 0 },
+      { name: '6??, ?댁뒋: 0 },
+      { name: '7??, ?댁뒋: 0 },
+      { name: '8??, ?댁뒋: 0 },
+      { name: '9??, ?댁뒋: 0 },
+      { name: '10??, ?댁뒋: 0 },
+      { name: '11??, ?댁뒋: 0 },
+      { name: '12??, ?댁뒋: 0 }
+    ];
+
+  return (
+    <div className="container mx-auto py-6">
+      
+      <div className="grid gap-6 mt-6">
+        <h1 className="text-3xl font-bold">??쒕낫??/h1>
+        
+        {/* 3x3 ??쒕낫??洹몃━??*/}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          
+          {/* 泥?踰덉㎏ ??*/}
+          
+          {/* ?볤? ?깅줉 ?듦퀎 - ?꾩껜 ?덈퉬 */}
+          <div className="col-span-3 border-2 border-blue-300 rounded-lg py-6 bg-gradient-to-r from-blue-50 to-indigo-50 
+px-6 shadow-md">
+            <h2 className="text-2xl font-bold mb-4 text-blue-800 flex items-center">
+              <MessageSquare className="mr-2 h-6 w-6 text-blue-600" /> 
+              ?볤? ?깅줉 ?듦퀎
+            </h2>
+            <div className="max-w-xl mx-auto">
+              <TopCommenters />
+            </div>
+          </div>
+          
+          {/* ?붾퀎 ?댁뒋 ?앹꽦 異붿씠 - 泥?踰덉㎏ ?닿낵 ??踰덉㎏ ??李⑥? */}
+          <Card className="col-span-2">
+            <CardHeader>
+              <CardTitle className="flex items-center">
+                <BarChart2 className="h-5 w-5 mr-2" />
+                ?붾퀎 ?댁뒋 ?앹꽦 異붿씠
+              </CardTitle>
+              <CardDescription>
+                ?붾퀎 ?댁뒋 ?앹꽦 ?섎? ?뺤씤?섏꽭??
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="h-72">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={monthlyData}>
+                    <XAxis dataKey="name" />
+                    <YAxis />
+                    <Tooltip />
+                    <Legend />
+                    <Bar dataKey="?댁뒋" fill="#8884d8" />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            </CardContent>
+          </Card>
+          
+          {/* 3. ?듦퀎 ?붿빟 - ??踰덉㎏ ??李⑥? */}
+          <div className="grid grid-rows-4 gap-4">
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium text-muted-foreground">
+                  ?꾩껜 ?댁뒋
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">{dashboardData.totalIssues}</div>
+              </CardContent>
+            </Card>
+            
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium text-muted-foreground">
+                  誘명빐寃??댁뒋
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">
+                  {dashboardData.statusDistribution.find((s: any) => s.name === '誘명빐寃?)?.count || 0}
+                </div>
+              </CardContent>
+            </Card>
+            
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium text-muted-foreground">
+                  吏꾪뻾以??댁뒋
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">
+                  {dashboardData.statusDistribution.find((s: any) => s.name === '吏꾪뻾以?)?.count || 0}
+                </div>
+              </CardContent>
+            </Card>
+            
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium text-muted-foreground">
+                  ?닿껐???댁뒋
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">
+                  {dashboardData.statusDistribution.find((s: any) => s.name === '?닿껐??)?.count || 0}
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+          
+          {/* ??踰덉㎏ ??*/}
+          
+          {/* 4. ?곹깭蹂??댁뒋 遺꾪룷 */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center">
+                <PieChartIcon className="h-5 w-5 mr-2" />
+                ?곹깭蹂??댁뒋 遺꾪룷
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="h-64">
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie
+                      data={statusData}
+                      cx="50%"
+                      cy="50%"
+                      labelLine={false}
+                      outerRadius={60}
+                      fill="#8884d8"
+                      dataKey="value"
+                    >
+                      {statusData.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                      ))}
+                    </Pie>
+                    <Tooltip formatter={(value, name) => [`${value}媛?, name]} />
+                    <Legend />
+                  </PieChart>
+                </ResponsiveContainer>
+              </div>
+            </CardContent>
+          </Card>
+          
+          {/* 5. ?곗꽑?쒖쐞蹂??댁뒋 遺꾪룷 */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center">
+                <AlertCircle className="h-5 w-5 mr-2" />
+                ?곗꽑?쒖쐞蹂??댁뒋 遺꾪룷
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="h-64">
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie
+                      data={priorityData}
+                      cx="50%"
+                      cy="50%"
+                      labelLine={false}
+                      outerRadius={60}
+                      fill="#8884d8"
+                      dataKey="value"
+                    >
+                      {priorityData.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                      ))}
+                    </Pie>
+                    <Tooltip formatter={(value, name) => [`${value}媛?, name]} />
+                    <Legend />
+                  </PieChart>
+                </ResponsiveContainer>
+              </div>
+            </CardContent>
+          </Card>
+          
+          {/* 6. 遺?쒕퀎 ?댁뒋 遺꾪룷 */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center">
+                <Briefcase className="h-5 w-5 mr-2" />
+                遺?쒕퀎 ?댁뒋 遺꾪룷
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="h-64">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart
+                    data={departmentData}
+                    layout="vertical"
+                    margin={{ top: 5, right: 30, left: 60, bottom: 5 }}
+                  >
+                    <XAxis type="number" />
+                    <YAxis type="category" dataKey="name" width={50} />
+                    <Tooltip />
+                    <Legend />
+                    <Bar dataKey="value" name="?댁뒋 ?? fill="#82ca9d" />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            </CardContent>
+          </Card>
+          
+          {/* ??踰덉㎏ ??*/}
+          
+          {/* 7. 理쒓렐 ?앹꽦???댁뒋 */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center">
+                <Clock className="h-5 w-5 mr-2" />
+                理쒓렐 ?앹꽦???댁뒋
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="max-h-64 overflow-auto">
+              <div className="space-y-2">
+                {dashboardData.recentIssues && dashboardData.recentIssues.length > 0 ? (
+                  dashboardData.recentIssues.map((issue: any) => (
+                    <div key={issue.id} className="border-b pb-2">
+                      <Link 
+                        href={`/issues/${issue.id}`}
+                        className="font-medium hover:underline block"
+                      >
+                        {issue.title}
+                      </Link>
+                      <div className="flex justify-between items-center text-sm text-muted-foreground mt-1">
+                        <div>{issue.department.label}</div>
+                        <div>{format(new Date(issue.createdAt), 'yyyy-MM-dd', { locale: ko })}</div>
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  <div className="text-center py-4 text-muted-foreground">
+                    理쒓렐 ?앹꽦???댁뒋媛 ?놁뒿?덈떎.
+                  </div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+          
+          {/* 8. 留덇컧???꾨컯 ?댁뒋 */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center">
+                <CalendarClock className="h-5 w-5 mr-2" />
+                留덇컧???꾨컯 ?댁뒋
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="max-h-64 overflow-auto">
+              <div className="space-y-2">
+                {dashboardData.upcomingDueIssues && dashboardData.upcomingDueIssues.length > 0 ? (
+                  dashboardData.upcomingDueIssues.map((issue: any) => (
+                    <div key={issue.id} className="border-b pb-2">
+                      <Link 
+                        href={`/issues/${issue.id}`}
+                        className="font-medium hover:underline block"
+                      >
+                        {issue.title}
+                      </Link>
+                      <div className="flex justify-between items-center text-sm mt-1">
+                        <div className="text-muted-foreground">{issue.department.label}</div>
+                        <div className="text-red-500 font-medium">
+                          留덇컧?? {format(new Date(issue.dueDate), 'yyyy-MM-dd', { locale: ko })}
+                        </div>
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  <div className="text-center py-4 text-muted-foreground">
+                    留덇컧???꾨컯???댁뒋媛 ?놁뒿?덈떎.
+                  </div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+          
+          {/* 9. ?쒖뒪???곹깭 ?붿빟 (?먮뒗 ?ㅻⅨ ?꾩슂???듦퀎) */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center">
+                <BarChart2 className="h-5 w-5 mr-2" />
+                ?쒖뒪???곹깭
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="flex flex-col justify-center h-64">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="border rounded-lg p-4 bg-green-50 text-center">
+                  <div className="text-sm text-gray-500">?곗씠?곕쿋?댁뒪</div>
+                  <div className="font-bold text-green-600 mt-1">?뺤긽</div>
+                </div>
+                <div className="border rounded-lg p-4 bg-green-50 text-center">
+                  <div className="text-sm text-gray-500">API ?쒕쾭</div>
+                  <div className="font-bold text-green-600 mt-1">?뺤긽</div>
+                </div>
+                <div className="border rounded-lg p-4 bg-green-50 text-center">
+                  <div className="text-sm text-gray-500">?ъ슜???몄쬆</div>
+                  <div className="font-bold text-green-600 mt-1">?뺤긽</div>
+                </div>
+                <div className="border rounded-lg p-4 bg-green-50 text-center">
+                  <div className="text-sm text-gray-500">諛깆뾽 ?쒖뒪??/div>
+                  <div className="font-bold text-green-600 mt-1">?뺤긽</div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+          
+          {/* ?볤? ?묒꽦 ??궧 */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center">
+                <MessageSquare className="h-5 w-5 mr-2" />
+                ?볤? ?묒꽦 ??궧
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <TopCommenters />
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    </div>
+  );
+} 
+
+
