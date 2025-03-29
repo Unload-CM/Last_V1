@@ -2,16 +2,21 @@
   "name": "factory-management",
   "version": "0.1.0",
   "private": true,
+  "browser": {
+    "crypto": false,
+    "stream": false,
+    "path": false
+  },
   "description": "인덕터 공장 관리 시스템",
   "main": "index.js",
   "engines": {
     "node": ">=18.0.0"
   },
   "scripts": {
-    "dev": "next dev -H 0.0.0.0",
+    "dev": "next dev",
     "build": "prisma generate && next build",
     "postinstall": "prisma generate",
-    "start": "next start -H 0.0.0.0",
+    "start": "next start",
     "lint": "next lint"
   },
   "dependencies": {

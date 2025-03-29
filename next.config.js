@@ -10,6 +10,23 @@ const nextConfig = {
     ],
   },
   // output: 'standalone', // 정적 생성을 사용하지 않음 (서버 측 렌더링을 위해 주석 처리)
+  
+  // webpack 설정 추가: NextAuth와 함께 사용하기 위한 폴리필 추가
+  webpack: (config, { isServer }) => {
+    if (!isServer) {
+      config.resolve.fallback = {
+        ...config.resolve.fallback,
+        fs: false,
+        net: false,
+        tls: false,
+        crypto: require.resolve('crypto-browserify'),
+        stream: require.resolve('stream-browserify'),
+        path: require.resolve('path-browserify'),
+      };
+    }
+    return config;
+  },
+  
   experimental: {
     serverComponentsExternalPackages: ['@prisma/client', 'bcrypt'],
     esmExternals: 'loose',
