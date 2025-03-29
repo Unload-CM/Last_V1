@@ -7,6 +7,10 @@ import { authOptions } from "@/lib/auth";
 // export const runtime = 'edge';
 export const runtime = 'nodejs';
 
+// 정적 생성 사용하지 않음 (항상 동적 경로로 처리)
+export const dynamic = 'force-dynamic';
+export const fetchCache = 'force-no-store';
+
 // 타입 정의
 interface IssueSummary {
   open: number;
@@ -119,12 +123,10 @@ const SAMPLE_MONTHLY_TREND = [
   { month: '6월', open: 5, inProgress: 7, resolved: 8, total: 20 }
 ];
 
-// 유효한 날짜 형식인지 확인하는 함수
+// URL 파라미터에서 날짜가 유효한지 확인하는 함수
 function isValidDate(dateString: string): boolean {
   const date = new Date(dateString);
-  const valid = !isNaN(date.getTime());
-  console.log(`날짜 유효성 검사: ${dateString} => ${valid ? '유효' : '유효하지 않음'}`);
-  return valid;
+  return !isNaN(date.getTime());
 }
 
 /**

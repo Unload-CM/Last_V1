@@ -2,6 +2,11 @@ import { NextRequest, NextResponse } from 'next/server';
 import fs from 'fs';
 import path from 'path';
 
+// 정적 생성 사용하지 않음 (항상 동적 경로로 처리)
+export const dynamic = 'force-dynamic';
+export const fetchCache = 'force-no-store';
+export const runtime = 'nodejs';
+
 export async function GET(request: NextRequest) {
   try {
     // URL에서 language 쿼리 파라미터 가져오기

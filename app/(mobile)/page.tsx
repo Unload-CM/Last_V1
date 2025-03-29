@@ -39,13 +39,21 @@ const SAMPLE_MONTHLY_DATA = [
   { month: 3, count: 12 },
   { month: 4, count: 7 },
   { month: 5, count: 10 },
-  { month: 6, count: 15 }
+  { month: 6, count: 15 },
+  { month: 7, count: 9 },
+  { month: 8, count: 14 },
+  { month: 9, count: 11 },
+  { month: 10, count: 6 },
+  { month: 11, count: 13 },
+  { month: 12, count: 10 }
 ];
 
 export default function MobileDashboard() {
   const { data: session, status } = useSession();
   const [language, setLanguage] = useState('ko');
-  const [dashboardData, setDashboardData] = useState<DashboardData | null>(null);
+  const [dashboardData, setDashboardData] = useState<DashboardData>({
+    monthlyIssueCreation: SAMPLE_MONTHLY_DATA
+  });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -88,9 +96,8 @@ export default function MobileDashboard() {
           if (!response.ok) {
             // API 오류 발생 시 샘플 데이터 사용
             console.error('대시보드 데이터를 불러오는데 실패했습니다, 샘플 데이터 사용');
-            setDashboardData({
-              monthlyIssueCreation: SAMPLE_MONTHLY_DATA
-            });
+            // 기존 샘플 데이터를 유지하고 로딩 상태만 변경합니다
+            setLoading(false);
             return;
           }
 
@@ -98,19 +105,11 @@ export default function MobileDashboard() {
           setDashboardData(data);
         } catch (fetchError) {
           console.error('API 호출 중 오류, 샘플 데이터 사용:', fetchError);
-          // API 호출 오류 시 샘플 데이터 사용
-          setDashboardData({
-            monthlyIssueCreation: SAMPLE_MONTHLY_DATA
-          });
+          // API 호출 오류 시도 기존 샘플 데이터를 유지합니다
         }
       } catch (err) {
         setError(err instanceof Error ? err.message : '알 수 없는 오류가 발생했습니다');
         console.error('Error fetching dashboard data:', err);
-        
-        // 오류 발생 시 샘플 데이터 사용
-        setDashboardData({
-          monthlyIssueCreation: SAMPLE_MONTHLY_DATA
-        });
       } finally {
         setLoading(false);
       }
@@ -163,21 +162,6 @@ export default function MobileDashboard() {
           </CardHeader>
           <CardContent className="px-4 pb-4">
             {error}
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
-  
-  if (!dashboardData) {
-    return (
-      <div className="container mx-auto p-4">
-        <Card className="w-full">
-          <CardHeader className="px-4 py-3">
-            <CardTitle className="text-lg">데이터 없음</CardTitle>
-          </CardHeader>
-          <CardContent className="px-4 pb-4">
-            표시할 데이터가 없습니다.
           </CardContent>
         </Card>
       </div>
