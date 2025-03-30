@@ -10,9 +10,6 @@ const nextConfig = {
     ],
   },
   
-  // 서버 사이드 렌더링 전용 설정
-  output: 'export',
-  
   // 정적 페이지 생성 비활성화
   staticPageGenerationTimeout: 300,
   distDir: '.next',
