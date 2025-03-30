@@ -14,10 +14,17 @@ const notoSansThai = Noto_Sans_Thai({
   variable: '--font-noto-sans-thai',
 });
 
+// viewport 설정을 별도로 export
+export const viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  maximumScale: 1,
+  userScalable: false,
+};
+
 export const metadata = {
   title: '공장 관리 시스템',
   description: '공장 관리를 위한 웹 애플리케이션',
-  viewport: 'width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no',
   'application-name': '공장 관리 시스템',
   'apple-mobile-web-app-capable': 'yes',
   'apple-mobile-web-app-status-bar-style': 'default',
