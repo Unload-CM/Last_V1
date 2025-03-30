@@ -1,25 +1,19 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useSession } from 'next-auth/react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { FiAward, FiTrendingUp, FiAlertCircle, FiCheckCircle, FiClock, FiList } from 'react-icons/fi';
-import { 
-  Chart as ChartJS, 
-  ArcElement, 
-  Tooltip, 
-  Legend, 
-  CategoryScale, 
-  LinearScale, 
-  BarElement, 
-  Title 
-} from 'chart.js';
-import { Pie, Bar } from 'react-chartjs-2';
+import dynamic from 'next/dynamic';
 import useTranslation from '../utils/i18n';
 import LoginForm from '@/components/LoginForm';
 
-ChartJS.register(ArcElement, Tooltip, Legend, CategoryScale, LinearScale, BarElement, Title);
+// Chart.js 관련 컴포넌트를 브라우저에서만 로드되도록 dynamic import
+const Charts = dynamic(() => import('@/components/Charts'), { 
+  ssr: false,
+  loading: () => <div className="h-64 w-full"><Skeleton className="h-full w-full" /></div>
+});
 
 // 이슈 타입 정의
 interface Issue {
@@ -194,44 +188,6 @@ export default function Home() {
     }
   }, [status]);
   
-  // 차트 데이터 생성
-  const issuesByCategoryData = {
-    labels: Object.keys(issuesByCategory),
-    datasets: [
-      {
-        data: Object.values(issuesByCategory),
-        backgroundColor: [
-          'rgba(255, 99, 132, 0.6)',
-          'rgba(54, 162, 235, 0.6)',
-          'rgba(255, 206, 86, 0.6)',
-          'rgba(75, 192, 192, 0.6)',
-          'rgba(153, 102, 255, 0.6)',
-        ],
-        borderColor: [
-          'rgba(255, 99, 132, 1)',
-          'rgba(54, 162, 235, 1)',
-          'rgba(255, 206, 86, 1)',
-          'rgba(75, 192, 192, 1)',
-          'rgba(153, 102, 255, 1)',
-        ],
-        borderWidth: 1,
-      },
-    ],
-  };
-
-  const issuesByDepartmentData = {
-    labels: Object.keys(issuesByDepartment),
-    datasets: [
-      {
-        label: '부서별 이슈',
-        data: Object.values(issuesByDepartment),
-        backgroundColor: 'rgba(54, 162, 235, 0.6)',
-        borderColor: 'rgba(54, 162, 235, 1)',
-        borderWidth: 1,
-      },
-    ],
-  };
-  
   // 날짜 포맷팅 함수
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
@@ -257,12 +213,10 @@ export default function Home() {
   // 우선순위 표시 스타일
   const getPriorityStyle = (priority: string) => {
     switch (priority) {
-      case 'CRITICAL':
-        return 'bg-red-100 text-red-800';
       case 'HIGH':
-        return 'bg-orange-100 text-orange-800';
+        return 'bg-red-100 text-red-800';
       case 'MEDIUM':
-        return 'bg-yellow-100 text-yellow-800';
+        return 'bg-orange-100 text-orange-800';
       case 'LOW':
         return 'bg-green-100 text-green-800';
       default:
@@ -273,15 +227,92 @@ export default function Home() {
   // 로그인하지 않은 사용자에게 로그인 폼 표시
   if (status === 'unauthenticated') {
     return (
-      <div className="container mx-auto py-6">
-        <div className="max-w-md mx-auto">
-          <Card>
-            <CardHeader className="space-y-1">
-              <CardTitle className="text-2xl font-bold">로그인</CardTitle>
-              <p className="text-sm text-muted-foreground">계정 정보로 로그인하세요</p>
+      <div className="container mx-auto p-4">
+        <Card className="w-full">
+          <CardHeader className="space-y-1">
+            <CardTitle className="text-2xl font-bold">로그인</CardTitle>
+            <p className="text-sm text-muted-foreground">계정 정보로 로그인하세요</p>
+          </CardHeader>
+          <CardContent>
+            <LoginForm />
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  // 차트 데이터 준비
+  const chartData = {
+    issuesByCategory: {
+      labels: Object.keys(issuesByCategory),
+      datasets: [
+        {
+          data: Object.values(issuesByCategory),
+          backgroundColor: [
+            'rgba(255, 99, 132, 0.6)',
+            'rgba(54, 162, 235, 0.6)',
+            'rgba(255, 206, 86, 0.6)',
+            'rgba(75, 192, 192, 0.6)',
+            'rgba(153, 102, 255, 0.6)',
+          ],
+          borderColor: [
+            'rgba(255, 99, 132, 1)',
+            'rgba(54, 162, 235, 1)',
+            'rgba(255, 206, 86, 1)',
+            'rgba(75, 192, 192, 1)',
+            'rgba(153, 102, 255, 1)',
+          ],
+          borderWidth: 1,
+        },
+      ],
+    },
+    issuesByDepartment: {
+      labels: Object.keys(issuesByDepartment),
+      datasets: [
+        {
+          label: '부서별 이슈',
+          data: Object.values(issuesByDepartment),
+          backgroundColor: 'rgba(54, 162, 235, 0.6)',
+          borderColor: 'rgba(54, 162, 235, 1)',
+          borderWidth: 1,
+        },
+      ],
+    }
+  };
+  
+  // 로딩 중일 때 스켈레톤 UI 표시
+  if (isLoading) {
+    return (
+      <div className="container mx-auto p-4">
+        <div className="grid gap-4 grid-cols-1 md:grid-cols-2 lg:grid-cols-4">
+          {[1, 2, 3, 4].map((i) => (
+            <Card key={i} className="w-full">
+              <CardHeader className="pb-2">
+                <Skeleton className="h-4 w-1/2" />
+              </CardHeader>
+              <CardContent>
+                <Skeleton className="h-8 w-1/4" />
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+        
+        <div className="grid gap-4 mt-4 grid-cols-1 md:grid-cols-2">
+          <Card className="w-full">
+            <CardHeader>
+              <Skeleton className="h-6 w-1/3" />
             </CardHeader>
             <CardContent>
-              <LoginForm />
+              <Skeleton className="h-64 w-full" />
+            </CardContent>
+          </Card>
+          
+          <Card className="w-full">
+            <CardHeader>
+              <Skeleton className="h-6 w-1/3" />
+            </CardHeader>
+            <CardContent>
+              <Skeleton className="h-64 w-full" />
             </CardContent>
           </Card>
         </div>
@@ -289,223 +320,259 @@ export default function Home() {
     );
   }
   
-  // 로딩 중일 때 스켈레톤 UI 표시
-  if (isLoading) {
-    return (
-      <div className="container mx-auto py-6 space-y-6">
-        <div className="flex items-center justify-between">
-          <Skeleton className="h-10 w-64" />
-          <Skeleton className="h-10 w-32" />
-        </div>
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <Skeleton className="h-80 w-full" />
-          <Skeleton className="h-80 w-full" />
-          <Skeleton className="h-80 w-full" />
-        </div>
-      </div>
-    );
-  }
-  
-  // 최종 UI 렌더링 - 헤더와 대시보드 요약
+  // 최종 UI 렌더링
   return (
-    <div className="container mx-auto py-6 space-y-6">
-      {/* 헤더 및 요약 정보 */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">대시보드</h1>
-          <p className="text-muted-foreground">
-            공장 관리 시스템의 전체 현황을 한눈에 확인하세요.
-          </p>
-        </div>
-      </div>
-      
-      {/* 요약 카드 - 이슈 상태별 수치 */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">열린 이슈</CardTitle>
-            <FiAlertCircle className="h-4 w-4 text-blue-500" />
+    <div className="container mx-auto p-4">
+      {/* 요약 통계 */}
+      <div className="grid gap-4 grid-cols-1 md:grid-cols-2 lg:grid-cols-4">
+        <Card className="w-full">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium flex items-center">
+              <FiAlertCircle className="mr-2 text-blue-500" />
+              열린 이슈
+            </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{issueSummary.open}</div>
-            <p className="text-xs text-muted-foreground">
-              전체 이슈의 {issueSummary.total > 0 ? Math.round((issueSummary.open / issueSummary.total) * 100) : 0}%
-            </p>
           </CardContent>
         </Card>
         
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">진행 중 이슈</CardTitle>
-            <FiClock className="h-4 w-4 text-yellow-500" />
+        <Card className="w-full">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium flex items-center">
+              <FiClock className="mr-2 text-yellow-500" />
+              진행 중인 이슈
+            </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{issueSummary.inProgress}</div>
-            <p className="text-xs text-muted-foreground">
-              전체 이슈의 {issueSummary.total > 0 ? Math.round((issueSummary.inProgress / issueSummary.total) * 100) : 0}%
-            </p>
           </CardContent>
         </Card>
         
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">해결된 이슈</CardTitle>
-            <FiCheckCircle className="h-4 w-4 text-green-500" />
+        <Card className="w-full">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium flex items-center">
+              <FiCheckCircle className="mr-2 text-green-500" />
+              해결된 이슈
+            </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{issueSummary.resolved}</div>
-            <p className="text-xs text-muted-foreground">
-              전체 이슈의 {issueSummary.total > 0 ? Math.round((issueSummary.resolved / issueSummary.total) * 100) : 0}%
-            </p>
           </CardContent>
         </Card>
         
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">완료된 이슈</CardTitle>
-            <FiList className="h-4 w-4 text-gray-500" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{issueSummary.closed}</div>
-            <p className="text-xs text-muted-foreground">
-              전체 이슈의 {issueSummary.total > 0 ? Math.round((issueSummary.closed / issueSummary.total) * 100) : 0}%
-            </p>
-          </CardContent>
-        </Card>
-      </div>
-      
-      {/* 중간 섹션 - 차트와 통계 */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* 카테고리별 이슈 차트 */}
-        <Card className="lg:col-span-1">
-          <CardHeader>
-            <CardTitle>카테고리별 이슈</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="h-80 flex items-center justify-center">
-              {Object.keys(issuesByCategory).length > 0 ? (
-                <Pie data={issuesByCategoryData} />
-              ) : (
-                <p className="text-muted-foreground text-center">데이터가 없습니다</p>
-              )}
-            </div>
-          </CardContent>
-        </Card>
-        
-        {/* 부서별 이슈 차트 */}
-        <Card className="lg:col-span-1">
-          <CardHeader>
-            <CardTitle>부서별 이슈</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="h-80 flex items-center justify-center">
-              {Object.keys(issuesByDepartment).length > 0 ? (
-                <Bar
-                  data={issuesByDepartmentData}
-                  options={{
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    scales: {
-                      y: {
-                        beginAtZero: true,
-                        ticks: {
-                          precision: 0
-                        }
-                      }
-                    }
-                  }}
-                />
-              ) : (
-                <p className="text-muted-foreground text-center">데이터가 없습니다</p>
-              )}
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-      
-      {/* 하단 섹션 - 더 많은 통계와 목록 */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* 최근 이슈 목록 */}
-        <Card className="lg:col-span-2">
-          <CardHeader>
-            <CardTitle>최근 이슈</CardTitle>
-          </CardHeader>
-          <CardContent>
-            {recentIssues.length > 0 ? (
-              <div className="overflow-auto">
-                <table className="w-full">
-                  <thead>
-                    <tr className="border-b">
-                      <th className="pb-2 text-left font-medium">ID</th>
-                      <th className="pb-2 text-left font-medium">제목</th>
-                      <th className="pb-2 text-left font-medium">상태</th>
-                      <th className="pb-2 text-left font-medium">우선순위</th>
-                      <th className="pb-2 text-left font-medium">작성일</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {recentIssues.map((issue) => (
-                      <tr key={issue.id} className="border-b">
-                        <td className="py-3 pr-2 text-sm">{issue.issueId}</td>
-                        <td className="py-3 pr-2 text-sm font-medium">{issue.title}</td>
-                        <td className="py-3 pr-2">
-                          <span className={`px-2 py-1 rounded-md text-xs font-medium ${getStatusStyle(issue.status)}`}>
-                            {issue.status}
-                          </span>
-                        </td>
-                        <td className="py-3 pr-2">
-                          <span className={`px-2 py-1 rounded-md text-xs font-medium ${getPriorityStyle(issue.priority)}`}>
-                            {issue.priority}
-                          </span>
-                        </td>
-                        <td className="py-3 text-sm text-muted-foreground">
-                          {formatDate(issue.createdAt)}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            ) : (
-              <p className="text-muted-foreground text-center py-4">이슈가 없습니다</p>
-            )}
-          </CardContent>
-        </Card>
-        
-        {/* 우수 해결자 목록 */}
-        <Card>
+        <Card className="w-full">
           <CardHeader className="pb-2">
-            <div className="flex items-center justify-between">
-              <CardTitle>이슈 해결 우수자</CardTitle>
-              <FiAward className="h-4 w-4 text-yellow-500" />
-            </div>
+            <CardTitle className="text-sm font-medium flex items-center">
+              <FiList className="mr-2 text-gray-500" />
+              전체 이슈
+            </CardTitle>
           </CardHeader>
           <CardContent>
-            {topResolvers.length > 0 ? (
-              <div className="space-y-4">
-                {topResolvers.map((resolver) => (
-                  <div key={resolver.id} className="flex items-center justify-between">
-                    <div className="flex items-center space-x-2">
-                      <div className="flex flex-col">
-                        <span className="text-sm font-medium">{resolver.name}</span>
-                        <span className="text-xs text-muted-foreground">{resolver.department}</span>
-                      </div>
+            <div className="text-2xl font-bold">{issueSummary.total}</div>
+          </CardContent>
+        </Card>
+      </div>
+      
+      {/* 차트 */}
+      <div className="grid gap-4 mt-4 grid-cols-1 md:grid-cols-2">
+        <Card className="w-full">
+          <CardHeader>
+            <CardTitle className="text-lg font-medium flex items-center">
+              <FiTrendingUp className="mr-2" />
+              카테고리별 이슈
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="h-64">
+              {Object.keys(issuesByCategory).length > 0 && (
+                <Charts type="pie" data={chartData.issuesByCategory} />
+              )}
+            </div>
+          </CardContent>
+        </Card>
+        
+        <Card className="w-full">
+          <CardHeader>
+            <CardTitle className="text-lg font-medium flex items-center">
+              <FiTrendingUp className="mr-2" />
+              부서별 이슈
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="h-64">
+              {Object.keys(issuesByDepartment).length > 0 && (
+                <Charts type="bar" data={chartData.issuesByDepartment} />
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+      
+      {/* 최근 이슈 */}
+      <Card className="w-full mt-4">
+        <CardHeader>
+          <CardTitle className="text-lg font-medium flex items-center">
+            <FiList className="mr-2" />
+            최근 이슈
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b">
+                  <th className="py-2 px-4 text-left">제목</th>
+                  <th className="py-2 px-4 text-left">상태</th>
+                  <th className="py-2 px-4 text-left">우선순위</th>
+                  <th className="py-2 px-4 text-left">부서</th>
+                  <th className="py-2 px-4 text-left">생성일</th>
+                </tr>
+              </thead>
+              <tbody>
+                {recentIssues.length > 0 ? (
+                  recentIssues.map((issue) => (
+                    <tr key={issue.id} className="border-b hover:bg-gray-50">
+                      <td className="py-2 px-4">{issue.title}</td>
+                      <td className="py-2 px-4">
+                        <span className={`px-2 py-1 rounded-full text-xs ${getStatusStyle(issue.status)}`}>
+                          {issue.status}
+                        </span>
+                      </td>
+                      <td className="py-2 px-4">
+                        <span className={`px-2 py-1 rounded-full text-xs ${getPriorityStyle(issue.priority)}`}>
+                          {issue.priority}
+                        </span>
+                      </td>
+                      <td className="py-2 px-4">{issue.department}</td>
+                      <td className="py-2 px-4">{formatDate(issue.createdAt)}</td>
+                    </tr>
+                  ))
+                ) : (
+                  <tr>
+                    <td colSpan={5} className="py-4 text-center text-gray-500">
+                      최근 이슈가 없습니다.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </CardContent>
+      </Card>
+      
+      {/* 우수자 & 통계 */}
+      <div className="grid gap-4 mt-4 grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
+        {/* 이슈 해결 우수자 */}
+        <Card className="w-full">
+          <CardHeader>
+            <CardTitle className="text-lg font-medium flex items-center">
+              <FiAward className="mr-2 text-yellow-500" />
+              이슈 해결 우수자
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              {topResolvers.length > 0 ? (
+                topResolvers.map((resolver, index) => (
+                  <div key={resolver.id} className="flex items-center">
+                    <div className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center mr-3">
+                      {index + 1}
                     </div>
-                    <div className="flex items-center space-x-2">
-                      <span className="text-sm font-medium">{resolver.resolvedCount}건</span>
-                      <span className="text-xs px-2 py-1 bg-green-100 text-green-800 rounded-full">
-                        {resolver.resolutionPercentage}%
-                      </span>
+                    <div className="flex-1">
+                      <div className="font-medium">{resolver.name}</div>
+                      <div className="text-xs text-gray-500">{resolver.department}</div>
+                    </div>
+                    <div className="text-right">
+                      <div className="font-medium">{resolver.resolvedCount}건</div>
+                      <div className="text-xs text-gray-500">{resolver.resolutionPercentage}%</div>
                     </div>
                   </div>
-                ))}
-              </div>
-            ) : (
-              <p className="text-muted-foreground text-center py-4">데이터가 없습니다</p>
-            )}
+                ))
+              ) : (
+                <div className="py-4 text-center text-gray-500">
+                  데이터가 없습니다.
+                </div>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+        
+        {/* 이슈 생성자 통계 */}
+        <Card className="w-full">
+          <CardHeader>
+            <CardTitle className="text-lg font-medium flex items-center">
+              <FiTrendingUp className="mr-2 text-blue-500" />
+              이슈 생성자 통계
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              {topCreators.length > 0 ? (
+                topCreators.map((creator, index) => (
+                  <div key={creator.id} className="flex items-center">
+                    <div className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center mr-3">
+                      {index + 1}
+                    </div>
+                    <div className="flex-1">
+                      <div className="font-medium">{creator.name}</div>
+                      <div className="text-xs text-gray-500">{creator.department}</div>
+                    </div>
+                    <div className="text-right">
+                      <div className="font-medium">{creator.createdCount}건</div>
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <div className="py-4 text-center text-gray-500">
+                  데이터가 없습니다.
+                </div>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+        
+        {/* 이슈 담당자 통계 */}
+        <Card className="w-full">
+          <CardHeader>
+            <CardTitle className="text-lg font-medium flex items-center">
+              <FiTrendingUp className="mr-2 text-green-500" />
+              이슈 담당자 통계
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              {topAssignees.length > 0 ? (
+                topAssignees.map((assignee, index) => (
+                  <div key={assignee.id} className="flex items-center">
+                    <div className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center mr-3">
+                      {index + 1}
+                    </div>
+                    <div className="flex-1">
+                      <div className="font-medium">{assignee.name}</div>
+                      <div className="text-xs text-gray-500">{assignee.department}</div>
+                    </div>
+                    <div className="text-right">
+                      <div className="font-medium">{assignee.assignedCount}건</div>
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <div className="py-4 text-center text-gray-500">
+                  데이터가 없습니다.
+                </div>
+              )}
+            </div>
           </CardContent>
         </Card>
       </div>
+      
+      {/* 오류 메시지 */}
+      {error && (
+        <div className="mt-4 p-4 bg-red-100 text-red-700 rounded">
+          {error}
+        </div>
+      )}
     </div>
   );
 }

@@ -7,9 +7,9 @@ import { authOptions } from "@/lib/auth";
 // export const runtime = 'edge';
 export const runtime = 'nodejs';
 
-// 정적 생성 사용하지 않음 (항상 동적 경로로 처리)
-export const dynamic = 'force-dynamic';
-export const fetchCache = 'force-no-store';
+// 정적 생성 사용하지 않음 (항상 동적 경로로 처리) - 일시 제거
+// export const dynamic = 'force-dynamic';
+// export const fetchCache = 'force-no-store';
 
 // 타입 정의
 interface IssueSummary {

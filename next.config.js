@@ -17,7 +17,9 @@ const nextConfig = {
   // 클라이언트 모듈 오류 방지를 위한 실험적 기능 설정
   experimental: {
     serverComponentsExternalPackages: ['@prisma/client', 'bcrypt'],
-    esmExternals: 'loose'
+    esmExternals: 'loose',
+    serverActions: false, // 서버 액션 비활성화
+    appDir: true, // App 디렉토리 명시적으로 활성화
   },
   
   // webpack 설정 추가: NextAuth와 함께 사용하기 위한 폴리필 추가
