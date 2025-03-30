@@ -11,17 +11,16 @@ const nextConfig = {
   },
   
   // 서버 사이드 렌더링 전용 설정
-  output: 'standalone',
+  output: 'export',
   
   // 정적 페이지 생성 비활성화
   staticPageGenerationTimeout: 300,
   distDir: '.next',
   
-  // 클라이언트 모듈 오류 방지를 위한 실험적 기능 비활성화
+  // 클라이언트 모듈 오류 방지를 위한 실험적 기능 설정
   experimental: {
     serverComponentsExternalPackages: ['@prisma/client', 'bcrypt'],
-    esmExternals: 'loose',
-    appDir: true,
+    esmExternals: 'loose'
   },
   
   // webpack 설정 추가: NextAuth와 함께 사용하기 위한 폴리필 추가
