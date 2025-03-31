@@ -3,7 +3,7 @@
   "version": 2,
   "framework": "nextjs",
   "buildCommand": "npm run build",
-  "outputDirectory": ".next",
+  "outputDirectory": "out",
   "regions": ["iad1"],
   "env": {
     "DATABASE_URL": "postgresql://postgres:1234@db.unwvnodolgwrgiojrswp.supabase.co:5432/postgres",

@@ -1,12 +1,9 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState } from 'react';
+import { useRouter } from 'next/router';
 import { signIn } from 'next-auth/react';
 import { useTranslation } from '@/store/languageStore';
-import Image from 'next/image';
-
-console.log('LoginForm loaded');
 
 export default function LoginForm() {
   const { t } = useTranslation();
@@ -15,14 +12,6 @@ export default function LoginForm() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-
-  // 디버깅 로그
-  useEffect(() => {
-    console.log('LoginForm - 번역 테스트:');
-    console.log('login.title =', t('login.title'));
-    console.log('login.password =', t('login.password'));
-    console.log('login.defaultPassword =', t('login.defaultPassword'));
-  }, [t]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -46,7 +35,6 @@ export default function LoginForm() {
         setError(t('login.invalidCredentials'));
       } else {
         // 로그인 성공 시 로컬 스토리지에 사원번호 저장
-        // 기본 정보가 있다면 그 정보를 가져와서 업데이트
         try {
           const storedAdminInfo = localStorage.getItem('adminInfo');
           let adminInfo = storedAdminInfo ? JSON.parse(storedAdminInfo) : {};
@@ -54,8 +42,7 @@ export default function LoginForm() {
           adminInfo = {
             ...adminInfo,
             isLoggedIn: true,
-            employeeId: employeeId, // 사원번호 저장
-            // 기본값으로 이름과 역할 설정 (나중에 서버에서 받아온 정보로 업데이트할 수 있음)
+            employeeId: employeeId,
             name: adminInfo.name || '관리자',
             role: adminInfo.role || 'admin'
           };
@@ -65,8 +52,7 @@ export default function LoginForm() {
           console.error('로컬 스토리지 저장 오류:', storageError);
         }
         
-        router.push('/');
-        router.refresh();
+        router.push('/dashboard');
       }
     } catch (err) {
       setError(t('login.error'));
@@ -141,12 +127,6 @@ export default function LoginForm() {
         
         <div className="text-sm text-center mt-4">
           <p className="text-gray-500">{t('login.defaultPassword')}</p>
-          {/* 
-          <div className="mt-2 p-3 bg-red-100 text-red-700 rounded-md">
-            <p>{t('login.adminOnly')}</p>
-            <p className="mt-1">{t('login.availableAccounts')}</p>
-          </div>
-          */}
         </div>
       </form>
       
