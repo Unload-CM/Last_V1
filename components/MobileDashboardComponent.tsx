@@ -89,9 +89,17 @@ export default function MobileDashboardComponent() {
       const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
       const endOfDay = new Date(now);
       
+      // 공통 fetch 옵션
+      const fetchOptions = {
+        headers: {
+          'Cache-Control': 'no-cache',
+          'Pragma': 'no-cache'
+        }
+      };
+      
       const response = await fetch(
         `/api/dashboard?from=${startOfMonth.toISOString()}&to=${endOfDay.toISOString()}&lang=${lang}`,
-        { cache: 'no-store' }
+        fetchOptions
       );
       
       if (response.ok) {

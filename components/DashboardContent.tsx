@@ -115,8 +115,16 @@ export default function DashboardContent() {
       setError(null);
       
       try {
+        // 공통 fetch 옵션
+        const fetchOptions = {
+          headers: {
+            'Cache-Control': 'no-cache',
+            'Pragma': 'no-cache'
+          }
+        };
+        
         // 최근 이슈 가져오기
-        const issuesResponse = await fetch('/api/issues?limit=5');
+        const issuesResponse = await fetch('/api/issues?limit=5', fetchOptions);
         if (!issuesResponse.ok) throw new Error('이슈 데이터를 불러오는데 실패했습니다.');
         const issuesData = await issuesResponse.json();
         setRecentIssues(issuesData.issues);
@@ -134,7 +142,7 @@ export default function DashboardContent() {
         const departmentCount: {[key: string]: number} = {};
         
         // 모든 이슈 가져오기 (요약 계산용)
-        const allIssuesResponse = await fetch('/api/issues?limit=100');
+        const allIssuesResponse = await fetch('/api/issues?limit=100', fetchOptions);
         if (!allIssuesResponse.ok) throw new Error('이슈 데이터를 불러오는데 실패했습니다.');
         const allIssuesData = await allIssuesResponse.json();
         
@@ -158,19 +166,19 @@ export default function DashboardContent() {
         setIssuesByDepartment(departmentCount);
         
         // 이슈 해결 우수자 가져오기 (관리자만)
-        const topResolversResponse = await fetch('/api/issues/top-resolvers?period=month&limit=5&position=관리자');
+        const topResolversResponse = await fetch('/api/issues/top-resolvers?period=month&limit=5&position=관리자', fetchOptions);
         if (!topResolversResponse.ok) throw new Error('우수자 데이터를 불러오는데 실패했습니다.');
         const topResolversData = await topResolversResponse.json();
         setTopResolvers(topResolversData.topResolvers);
         
         // 이슈 생성자 통계 가져오기
-        const topCreatorsResponse = await fetch('/api/issues/top-creators?limit=5');
+        const topCreatorsResponse = await fetch('/api/issues/top-creators?limit=5', fetchOptions);
         if (!topCreatorsResponse.ok) throw new Error('생성자 통계를 불러오는데 실패했습니다.');
         const topCreatorsData = await topCreatorsResponse.json();
         setTopCreators(topCreatorsData.topCreators);
-
+        
         // 이슈 담당자 통계 가져오기
-        const topAssigneesResponse = await fetch('/api/issues/top-assignees?limit=3');
+        const topAssigneesResponse = await fetch('/api/issues/top-assignees?limit=3', fetchOptions);
         if (!topAssigneesResponse.ok) throw new Error('담당자 통계를 불러오는데 실패했습니다.');
         const topAssigneesData = await topAssigneesResponse.json();
         setTopAssignees(topAssigneesData.topAssignees);
@@ -240,7 +248,7 @@ export default function DashboardContent() {
       </div>
     );
   }
-
+  
   // 차트 데이터 준비
   const chartData = {
     issuesByCategory: {
