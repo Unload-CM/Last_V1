@@ -1,22 +1,11 @@
-'use client';
-
-import React from 'react';
-import dynamic from 'next/dynamic';
-import { Skeleton } from '@/components/ui/skeleton';
-
-// 모바일 대시보드를 별도 컴포넌트로 분리
-const MobileDashboardComponent = dynamic(() => import('@/components/MobileDashboardComponent'), {
-  ssr: false,
-  loading: () => (
-    <div className="container mx-auto p-4">
-      <div className="bg-white shadow rounded-lg p-4">
-        <Skeleton className="h-6 w-40 mb-4" />
-        <Skeleton className="h-64 w-full" />
+export default function MobilePage() {
+  return (
+    <div className="h-screen w-full flex items-center justify-center">
+      <div className="text-center">
+        <h1 className="text-xl font-bold">공장 관리 시스템</h1>
+        <p className="mt-2">모바일 화면</p>
+        <p className="text-sm mt-1">로그인 중입니다...</p>
       </div>
     </div>
-  )
-});
-
-export default function MobilePage() {
-  return <MobileDashboardComponent />;
+  );
 } 
