@@ -1,30 +1,33 @@
 {
   "name": "factory-management",
   "version": 2,
-  "framework": null,
-  "buildCommand": "npm run build",
-  "outputDirectory": "out",
+  "framework": "nextjs",
+  "buildCommand": "prisma generate && next build",
+  "outputDirectory": ".next",
   "regions": ["iad1"],
   "env": {
-    "DATABASE_URL": "postgres://postgres.ekzoqpoztqjaneeamkcz:3Z7RW4UZoVDaO7E6@aws-0-ap-southeast-1.pooler.supabase.com:6543/postgres?sslmode=require&supa=base-pooler.x",
+    "DATABASE_URL": "postgres://postgres.ekzoqpoztqjaneeamkcz:3Z7RW4UZoVDaO7E6@aws-0-ap-southeast-1.pooler.supabase.com:6543/postgres?sslmode=require&schema=public",
     "NEXT_PUBLIC_SUPABASE_URL": "https://ekzoqpoztqjaneeamkcz.supabase.co",
     "NEXT_PUBLIC_SUPABASE_ANON_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVrem9xcG96dHFqYW5lZWFta2N6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDMyOTkyOTUsImV4cCI6MjA1ODg3NTI5NX0.oxlB7tXgpX3vNZEEa4PVVDDyY39ZDkyVLUxyHgZhfCc",
-    "POSTGRES_URL": "postgres://postgres.ekzoqpoztqjaneeamkcz:3Z7RW4UZoVDaO7E6@aws-0-ap-southeast-1.pooler.supabase.com:6543/postgres?sslmode=require&supa=base-pooler.x",
-    "POSTGRES_PRISMA_URL": "postgres://postgres.ekzoqpoztqjaneeamkcz:3Z7RW4UZoVDaO7E6@aws-0-ap-southeast-1.pooler.supabase.com:6543/postgres?sslmode=require&supa=base-pooler.x",
-    "POSTGRES_URL_NON_POOLING": "postgres://postgres.ekzoqpoztqjaneeamkcz:3Z7RW4UZoVDaO7E6@aws-0-ap-southeast-1.pooler.supabase.com:5432/postgres?sslmode=require",
+    "POSTGRES_URL": "postgres://postgres.ekzoqpoztqjaneeamkcz:3Z7RW4UZoVDaO7E6@aws-0-ap-southeast-1.pooler.supabase.com:6543/postgres?sslmode=require&schema=public",
+    "POSTGRES_PRISMA_URL": "postgres://postgres.ekzoqpoztqjaneeamkcz:3Z7RW4UZoVDaO7E6@aws-0-ap-southeast-1.pooler.supabase.com:6543/postgres?sslmode=require&schema=public",
+    "POSTGRES_URL_NON_POOLING": "postgres://postgres.ekzoqpoztqjaneeamkcz:3Z7RW4UZoVDaO7E6@aws-0-ap-southeast-1.pooler.supabase.com:6543/postgres?sslmode=require&schema=public",
     "SUPABASE_URL": "https://ekzoqpoztqjaneeamkcz.supabase.co",
     "SUPABASE_JWT_SECRET": "Q4O1Po6VP5OiooNATF8HvRPQbPtBuNLuvGFuuD32CFDgUVKtvb6WQMX7GpRkVRsYrgJv25RN9XKvTQa03EeE2A==",
-    "POSTGRES_USER": "postgres",
+    "POSTGRES_USER": "postgres.ekzoqpoztqjaneeamkcz",
     "POSTGRES_PASSWORD": "3Z7RW4UZoVDaO7E6",
     "POSTGRES_DATABASE": "postgres",
-    "POSTGRES_HOST": "db.ekzoqpoztqjaneeamkcz.supabase.co",
+    "POSTGRES_HOST": "aws-0-ap-southeast-1.pooler.supabase.com",
+    "POSTGRES_PORT": "6543",
+    "POSTGRES_SCHEMA": "public",
     "SUPABASE_SERVICE_ROLE_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVrem9xcG96dHFqYW5lZWFta2N6Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc0MzI5OTI5NSwiZXhwIjoyMDU4ODc1Mjk1fQ.LepQuZy8KqxlW1S1Wd69a2tShR6VHmCtQuwsX7sQKUI",
     "NEXT_PUBLIC_BASE_URL": "https://last-v1.vercel.app",
     "NEXTAUTH_URL": "https://last-v1.vercel.app",
     "NEXT_PUBLIC_LOGOUT_REDIRECT_URL": "https://last-v1.vercel.app/admin-login",
     "NEXTAUTH_SECRET": "dljaSLKDJlajDLKjd2390asldLAKSdjadlsd23",
     "NODE_ENV": "production",
-    "NEXT_PRIVATE_SKIP_OPTIMIZATION": "true"
+    "NEXT_PRIVATE_SKIP_OPTIMIZATION": "true",
+    "DIRECT_URL": "postgres://postgres.ekzoqpoztqjaneeamkcz:3Z7RW4UZoVDaO7E6@aws-0-ap-southeast-1.pooler.supabase.com:6543/postgres?sslmode=require&schema=public"
   },
   "installCommand": "npm install",
   "build": {
@@ -48,6 +51,23 @@
     }
   },
   "headers": [
+    {
+      "source": "/(.*)",
+      "headers": [
+        {
+          "key": "X-Content-Type-Options",
+          "value": "nosniff"
+        },
+        {
+          "key": "X-Frame-Options",
+          "value": "DENY"
+        },
+        {
+          "key": "X-XSS-Protection",
+          "value": "1; mode=block"
+        }
+      ]
+    },
     {
       "source": "/(.*).js",
       "headers": [
@@ -74,6 +94,12 @@
           "value": "public, max-age=31536000, immutable"
         }
       ]
+    }
+  ],
+  "crons": [
+    {
+      "path": "/api/cron",
+      "schedule": "0 0 * * *"
     }
   ]
 } 
