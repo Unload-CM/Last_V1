@@ -1,7 +1,7 @@
 {
   "name": "factory-management",
   "version": 2,
-  "framework": false,
+  "framework": null,
   "buildCommand": "npm run build",
   "outputDirectory": "out",
   "regions": ["iad1"],
