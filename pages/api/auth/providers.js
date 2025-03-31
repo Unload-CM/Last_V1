@@ -1,8 +1,9 @@
-// NextAuth providers API endpoint - 루트 경로 버전
+// NextAuth providers API endpoint
+import { unstable_getServerSession } from 'next-auth/next';
 import { authOptions } from '@/pages/api/auth/[...nextauth]';
 
 /**
- * NextAuth providers API endpoint - 루트 경로 버전
+ * NextAuth providers API endpoint
  * @param {import('next').NextApiRequest} req
  * @param {import('next').NextApiResponse} res
  */
