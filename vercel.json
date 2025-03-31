@@ -1,8 +1,8 @@
 {
   "name": "factory-management",
   "version": 2,
-  "framework": "nextjs",
-  "buildCommand": "npm run deploy",
+  "framework": false,
+  "buildCommand": "npm run build",
   "outputDirectory": "out",
   "regions": ["iad1"],
   "env": {
