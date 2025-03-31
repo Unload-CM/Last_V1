@@ -27,26 +27,7 @@
       "NEXT_PRIVATE_SKIP_OPTIMIZATION": "true"
     }
   },
-  "functions": {
-    "pages/api/**/*": {
-      "memory": 1024,
-      "maxDuration": 30
-    }
-  },
   "headers": [
-    {
-      "source": "/api/(.*)",
-      "headers": [
-        {
-          "key": "Cache-Control",
-          "value": "no-store, must-revalidate"
-        },
-        {
-          "key": "Pragma",
-          "value": "no-cache"
-        }
-      ]
-    },
     {
       "source": "/(.*).js",
       "headers": [
