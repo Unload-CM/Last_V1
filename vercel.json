@@ -1,23 +1,26 @@
 {
   "name": "factory-management",
   "version": 2,
-  "framework": null,
-  "buildCommand": "npm run build",
-  "outputDirectory": "out",
+  "framework": "nextjs",
+  "buildCommand": "prisma generate && next build",
+  "outputDirectory": ".next",
   "regions": ["iad1"],
   "env": {
-    "DATABASE_URL": "postgres://postgres.ekzoqpoztqjaneeamkcz:3Z7RW4UZoVDaO7E6@aws-0-ap-southeast-1.pooler.supabase.com:6543/postgres?sslmode=require&supa=base-pooler.x",
+    "DATABASE_URL": "postgresql://postgres:3Z7RW4UZoVDaO7E6@db.ekzoqpoztqjaneeamkcz.supabase.co:5432/postgres?schema=public&sslmode=require",
+    "DIRECT_URL": "postgresql://postgres:3Z7RW4UZoVDaO7E6@db.ekzoqpoztqjaneeamkcz.supabase.co:5432/postgres?schema=public&sslmode=require",
     "NEXT_PUBLIC_SUPABASE_URL": "https://ekzoqpoztqjaneeamkcz.supabase.co",
     "NEXT_PUBLIC_SUPABASE_ANON_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVrem9xcG96dHFqYW5lZWFta2N6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDMyOTkyOTUsImV4cCI6MjA1ODg3NTI5NX0.oxlB7tXgpX3vNZEEa4PVVDDyY39ZDkyVLUxyHgZhfCc",
-    "POSTGRES_URL": "postgres://postgres.ekzoqpoztqjaneeamkcz:3Z7RW4UZoVDaO7E6@aws-0-ap-southeast-1.pooler.supabase.com:6543/postgres?sslmode=require&supa=base-pooler.x",
-    "POSTGRES_PRISMA_URL": "postgres://postgres.ekzoqpoztqjaneeamkcz:3Z7RW4UZoVDaO7E6@aws-0-ap-southeast-1.pooler.supabase.com:6543/postgres?sslmode=require&supa=base-pooler.x",
-    "POSTGRES_URL_NON_POOLING": "postgres://postgres.ekzoqpoztqjaneeamkcz:3Z7RW4UZoVDaO7E6@aws-0-ap-southeast-1.pooler.supabase.com:5432/postgres?sslmode=require",
+    "POSTGRES_URL": "postgresql://postgres:3Z7RW4UZoVDaO7E6@db.ekzoqpoztqjaneeamkcz.supabase.co:5432/postgres?schema=public&sslmode=require",
+    "POSTGRES_PRISMA_URL": "postgresql://postgres:3Z7RW4UZoVDaO7E6@db.ekzoqpoztqjaneeamkcz.supabase.co:5432/postgres?schema=public&sslmode=require",
+    "POSTGRES_URL_NON_POOLING": "postgresql://postgres:3Z7RW4UZoVDaO7E6@db.ekzoqpoztqjaneeamkcz.supabase.co:5432/postgres?schema=public&sslmode=require",
     "SUPABASE_URL": "https://ekzoqpoztqjaneeamkcz.supabase.co",
     "SUPABASE_JWT_SECRET": "Q4O1Po6VP5OiooNATF8HvRPQbPtBuNLuvGFuuD32CFDgUVKtvb6WQMX7GpRkVRsYrgJv25RN9XKvTQa03EeE2A==",
     "POSTGRES_USER": "postgres",
     "POSTGRES_PASSWORD": "3Z7RW4UZoVDaO7E6",
     "POSTGRES_DATABASE": "postgres",
     "POSTGRES_HOST": "db.ekzoqpoztqjaneeamkcz.supabase.co",
+    "POSTGRES_PORT": "5432",
+    "POSTGRES_SCHEMA": "public",
     "SUPABASE_SERVICE_ROLE_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVrem9xcG96dHFqYW5lZWFta2N6Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc0MzI5OTI5NSwiZXhwIjoyMDU4ODc1Mjk1fQ.LepQuZy8KqxlW1S1Wd69a2tShR6VHmCtQuwsX7sQKUI",
     "NEXT_PUBLIC_BASE_URL": "https://last-v1.vercel.app",
     "NEXTAUTH_URL": "https://last-v1.vercel.app",
@@ -29,18 +32,21 @@
   "installCommand": "npm install",
   "build": {
     "env": {
-      "DATABASE_URL": "postgres://postgres.ekzoqpoztqjaneeamkcz:3Z7RW4UZoVDaO7E6@aws-0-ap-southeast-1.pooler.supabase.com:6543/postgres?sslmode=require&supa=base-pooler.x",
+      "DATABASE_URL": "postgresql://postgres:3Z7RW4UZoVDaO7E6@db.ekzoqpoztqjaneeamkcz.supabase.co:5432/postgres?schema=public&sslmode=require",
+      "DIRECT_URL": "postgresql://postgres:3Z7RW4UZoVDaO7E6@db.ekzoqpoztqjaneeamkcz.supabase.co:5432/postgres?schema=public&sslmode=require",
       "NEXT_PUBLIC_SUPABASE_URL": "https://ekzoqpoztqjaneeamkcz.supabase.co",
       "NEXT_PUBLIC_SUPABASE_ANON_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVrem9xcG96dHFqYW5lZWFta2N6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDMyOTkyOTUsImV4cCI6MjA1ODg3NTI5NX0.oxlB7tXgpX3vNZEEa4PVVDDyY39ZDkyVLUxyHgZhfCc",
-      "POSTGRES_URL": "postgres://postgres.ekzoqpoztqjaneeamkcz:3Z7RW4UZoVDaO7E6@aws-0-ap-southeast-1.pooler.supabase.com:6543/postgres?sslmode=require&supa=base-pooler.x",
-      "POSTGRES_PRISMA_URL": "postgres://postgres.ekzoqpoztqjaneeamkcz:3Z7RW4UZoVDaO7E6@aws-0-ap-southeast-1.pooler.supabase.com:6543/postgres?sslmode=require&supa=base-pooler.x",
-      "POSTGRES_URL_NON_POOLING": "postgres://postgres.ekzoqpoztqjaneeamkcz:3Z7RW4UZoVDaO7E6@aws-0-ap-southeast-1.pooler.supabase.com:5432/postgres?sslmode=require",
+      "POSTGRES_URL": "postgresql://postgres:3Z7RW4UZoVDaO7E6@db.ekzoqpoztqjaneeamkcz.supabase.co:5432/postgres?schema=public&sslmode=require",
+      "POSTGRES_PRISMA_URL": "postgresql://postgres:3Z7RW4UZoVDaO7E6@db.ekzoqpoztqjaneeamkcz.supabase.co:5432/postgres?schema=public&sslmode=require",
+      "POSTGRES_URL_NON_POOLING": "postgresql://postgres:3Z7RW4UZoVDaO7E6@db.ekzoqpoztqjaneeamkcz.supabase.co:5432/postgres?schema=public&sslmode=require",
       "SUPABASE_URL": "https://ekzoqpoztqjaneeamkcz.supabase.co",
       "SUPABASE_JWT_SECRET": "Q4O1Po6VP5OiooNATF8HvRPQbPtBuNLuvGFuuD32CFDgUVKtvb6WQMX7GpRkVRsYrgJv25RN9XKvTQa03EeE2A==",
       "POSTGRES_USER": "postgres",
       "POSTGRES_PASSWORD": "3Z7RW4UZoVDaO7E6",
       "POSTGRES_DATABASE": "postgres",
       "POSTGRES_HOST": "db.ekzoqpoztqjaneeamkcz.supabase.co",
+      "POSTGRES_PORT": "5432",
+      "POSTGRES_SCHEMA": "public",
       "SUPABASE_SERVICE_ROLE_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVrem9xcG96dHFqYW5lZWFta2N6Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc0MzI5OTI5NSwiZXhwIjoyMDU4ODc1Mjk1fQ.LepQuZy8KqxlW1S1Wd69a2tShR6VHmCtQuwsX7sQKUI",
       "NEXTAUTH_URL": "https://last-v1.vercel.app",
       "NEXTAUTH_SECRET": "dljaSLKDJlajDLKjd2390asldLAKSdjadlsd23",
@@ -48,6 +54,23 @@
     }
   },
   "headers": [
+    {
+      "source": "/(.*)",
+      "headers": [
+        {
+          "key": "X-Content-Type-Options",
+          "value": "nosniff"
+        },
+        {
+          "key": "X-Frame-Options",
+          "value": "DENY"
+        },
+        {
+          "key": "X-XSS-Protection",
+          "value": "1; mode=block"
+        }
+      ]
+    },
     {
       "source": "/(.*).js",
       "headers": [
@@ -74,6 +97,12 @@
           "value": "public, max-age=31536000, immutable"
         }
       ]
+    }
+  ],
+  "crons": [
+    {
+      "path": "/api/cron",
+      "schedule": "0 0 * * *"
     }
   ]
 } 
