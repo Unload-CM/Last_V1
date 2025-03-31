@@ -12,7 +12,9 @@ const nextConfig = {
   },
   
   // 정적 페이지 생성 설정
-  output: 'standalone', // 서버리스 배포 모드
+  output: 'export', // 완전한 정적 내보내기로 변경
+  distDir: '.next',
+  trailingSlash: true, // URL 끝에 슬래시 추가
   
   // Next.js 15.2.4에서 변경된 설정
   serverExternalPackages: ['@prisma/client', 'bcrypt'],
