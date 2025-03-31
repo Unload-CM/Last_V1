@@ -15,12 +15,18 @@ export const authOptions = {
         password: { label: '비밀번호', type: 'password' }
       },
       async authorize(credentials, req) {
+        // 디버깅 로그 추가
+        console.log('authorize 함수 호출됨', { credentials });
+        
         if (!credentials?.employeeId || !credentials?.password) {
+          console.log('자격 증명 누락', { employeeId: credentials?.employeeId, hasPassword: !!credentials?.password });
           throw new Error('사원번호와 비밀번호를 입력해주세요.');
         }
 
         try {
           // 직원 찾기
+          console.log('직원 조회 시도:', { employeeId: credentials.employeeId });
+          
           const employee = await prisma.employee.findUnique({
             where: {
               employeeId: credentials.employeeId
@@ -30,19 +36,24 @@ export const authOptions = {
             }
           });
 
-          if (!employee || !employee.password) {
+          console.log('직원 조회 결과:', { found: !!employee, employeeId: employee?.employeeId });
+
+          if (!employee) {
+            console.log('직원을 찾을 수 없음:', credentials.employeeId);
             throw new Error('유효하지 않은 사원번호입니다.');
           }
 
-          // 비밀번호 비교
+          // 비밀번호 비교 (평문)
           const passwordMatch = credentials.password === employee.password;
+          console.log('비밀번호 검증:', { match: passwordMatch });
 
           if (!passwordMatch) {
+            console.log('비밀번호 불일치');
             throw new Error('비밀번호가 일치하지 않습니다.');
           }
 
-          // NextAuth User 인터페이스와 일치하는 객체 반환
-          return {
+          // 사용자 정보 준비
+          const user = {
             id: employee.id.toString(),
             email: employee.employeeId,
             name: employee.koreanName,
@@ -56,8 +67,15 @@ export const authOptions = {
             isAdmin: employee.isAdmin,
             isSystemAdmin: employee.isAdmin // 관리자는 시스템 관리자로 취급
           };
+          
+          console.log('인증 성공, 반환할 사용자:', { id: user.id, email: user.email });
+          return user;
         } catch (error) {
-          console.error('로그인 오류:', error);
+          console.error('인증 오류:', error);
+          // 구체적인 오류 메시지 반환
+          if (error instanceof Error) {
+            throw new Error(error.message);
+          }
           throw new Error('로그인 처리 중 오류가 발생했습니다.');
         }
       }
@@ -65,13 +83,16 @@ export const authOptions = {
   ],
   pages: {
     signIn: '/login',
+    error: '/login', // 오류 발생 시 로그인 페이지로 리디렉션
   },
   session: {
     strategy: "jwt" as SessionStrategy,
+    maxAge: 30 * 24 * 60 * 60, // 30일
   },
   callbacks: {
     async jwt({ token, user }) {
       if (user) {
+        console.log('JWT 콜백:', { userId: user.id });
         token.id = user.id;
         token.email = user.email;
         token.name = user.name;
@@ -89,6 +110,7 @@ export const authOptions = {
     },
     async session({ session, token }) {
       if (token && session.user) {
+        console.log('세션 콜백:', { tokenId: token.id });
         session.user.id = token.id;
         session.user.email = token.email;
         session.user.name = token.name;
@@ -106,7 +128,7 @@ export const authOptions = {
     }
   },
   secret: process.env.NEXTAUTH_SECRET,
-  debug: process.env.NODE_ENV === 'development',
+  debug: true, // 디버그 모드 활성화
 };
 
 export default NextAuth(authOptions); 

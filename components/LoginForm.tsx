@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import { signIn } from 'next-auth/react';
 import { useTranslation } from '@/store/languageStore';
@@ -13,6 +13,15 @@ export default function LoginForm() {
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
+  // URL 쿼리 파라미터에서 에러 메시지 확인
+  useEffect(() => {
+    const errorMessage = router.query.error;
+    if (errorMessage) {
+      console.log('URL에서 감지된 오류:', errorMessage);
+      setError(typeof errorMessage === 'string' ? errorMessage : t('login.invalidCredentials'));
+    }
+  }, [router.query, t]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
@@ -24,16 +33,22 @@ export default function LoginForm() {
       return;
     }
 
+    console.log('로그인 시도:', { employeeId });
+
     try {
       const result = await signIn('credentials', {
         redirect: false,
-        email: employeeId, // 백엔드에서는 아직 email이란 이름으로 받고 있음
+        employeeId: employeeId, // email 대신 employeeId 사용
         password,
       });
 
+      console.log('로그인 결과:', result);
+
       if (result?.error) {
-        setError(t('login.invalidCredentials'));
-      } else {
+        console.error('로그인 오류:', result.error);
+        setError(result.error || t('login.invalidCredentials'));
+      } else if (result?.ok) {
+        console.log('로그인 성공');
         // 로그인 성공 시 로컬 스토리지에 사원번호 저장
         try {
           const storedAdminInfo = localStorage.getItem('adminInfo');
@@ -53,8 +68,12 @@ export default function LoginForm() {
         }
         
         router.push('/dashboard');
+      } else {
+        console.error('로그인 응답 불명확:', result);
+        setError(t('login.error'));
       }
     } catch (err) {
+      console.error('로그인 예외 발생:', err);
       setError(t('login.error'));
     } finally {
       setIsLoading(false);
