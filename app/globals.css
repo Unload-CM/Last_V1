@@ -42,6 +42,7 @@
   }
   body {
     @apply bg-background text-foreground;
+    font-family: 'Inter', sans-serif;
   }
   h1 {
     @apply text-3xl font-bold text-gray-900;
@@ -80,7 +81,7 @@
 
 /* 태국어 텍스트를 위한 특별한 스타일 */
 .thai-text {
-  font-family: var(--font-thai), sans-serif;
+  font-family: var(--font-noto-sans-thai), sans-serif;
   @apply text-lg leading-relaxed tracking-wide;
 }
 

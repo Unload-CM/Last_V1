@@ -1,22 +1,18 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: false,
+  swcMinify: true,
   images: {
     unoptimized: true,
-    remotePatterns: [
-      {
-        protocol: 'https',
-        hostname: '**',
-      },
-    ],
+    domains: ['*'],
   },
   
-  // 간단한 설정만 유지
+  // 서버리스 모드 유지
   output: 'standalone',
+  
+  // 클라이언트 로딩 관련 설정
   experimental: {
-    appDocumentPreloading: false,
-    esmExternals: false,
-    serverComponentsExternalPackages: ['@prisma/client', 'bcrypt']
+    optimizePackageImports: ['@/components/ui']
   },
   
   // 환경 변수 설정
