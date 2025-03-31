@@ -1,6 +1,6 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  reactStrictMode: true,
+  reactStrictMode: false, // 엄격 모드 비활성화로 이중 렌더링 방지
   images: {
     remotePatterns: [
       {
@@ -8,6 +8,7 @@ const nextConfig = {
         hostname: '**',
       },
     ],
+    unoptimized: true, // 이미지 최적화 비활성화
   },
   
   // 정적 페이지 생성 비활성화
@@ -21,6 +22,8 @@ const nextConfig = {
     serverActions: false, // 서버 액션 비활성화
     appDir: true, // App 디렉토리 명시적으로 활성화
     forceSwcTransforms: true, // SWC 트랜스폼 강제 적용
+    instrumentationHook: false, // 계측 훅 비활성화
+    optimizePackageImports: false, // 패키지 임포트 최적화 비활성화
   },
   
   // webpack 설정 추가: NextAuth와 함께 사용하기 위한 폴리필 추가
@@ -36,6 +39,14 @@ const nextConfig = {
         path: false,
       };
     }
+    
+    // CSS 모듈 처리 개선
+    config.module.rules.push({
+      test: /\.css$/,
+      use: ['style-loader', 'css-loader'],
+      include: /node_modules/,
+    });
+    
     return config;
   },
   
@@ -63,7 +74,7 @@ const nextConfig = {
     NEXT_PUBLIC_BASE_URL: process.env.NEXT_PUBLIC_BASE_URL || 'https://last-v1.vercel.app'
   },
   
-  // clientModules 오류 방지 설정
+  // 타입스크립트와 ESLint 오류 무시 설정
   typescript: {
     ignoreBuildErrors: true,
   },
@@ -74,6 +85,16 @@ const nextConfig = {
   // CSS 관련 설정
   swcMinify: true, // SWC 최적화 활성화
   optimizeFonts: true, // 폰트 최적화 활성화
+  
+  // 로깅 레벨 설정
+  logging: {
+    fetches: {
+      fullUrl: true,
+    },
+  },
+  
+  // 빌드 시 소스맵 비활성화로 성능 향상
+  productionBrowserSourceMaps: false,
 };
 
 module.exports = nextConfig; 

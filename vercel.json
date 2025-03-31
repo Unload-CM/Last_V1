@@ -13,7 +13,8 @@
     "NEXTAUTH_URL": "https://last-v1.vercel.app",
     "NEXT_PUBLIC_LOGOUT_REDIRECT_URL": "https://last-v1.vercel.app/admin-login",
     "NEXTAUTH_SECRET": "dljaSLKDJlajDLKjd2390asldLAKSdjadlsd23",
-    "NODE_ENV": "production"
+    "NODE_ENV": "production",
+    "NEXT_PRIVATE_SKIP_OPTIMIZATION": "true"
   },
   "installCommand": "npm install",
   "build": {
@@ -22,17 +23,19 @@
       "NEXT_PUBLIC_SUPABASE_URL": "https://unwvnodolgwrgiojrswp.supabase.co",
       "NEXT_PUBLIC_SUPABASE_ANON_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVud3Zub2RvbGd3cmdpb2pyc3dwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MTQzNjU3MzQsImV4cCI6MjAyOTk0MTczNH0.c8dv30Cpo_hqOgTiVo4Iq6-MpHr0dTk5NQXguVPf-qk",
       "NEXTAUTH_URL": "https://last-v1.vercel.app",
-      "NEXTAUTH_SECRET": "dljaSLKDJlajDLKjd2390asldLAKSdjadlsd23"
+      "NEXTAUTH_SECRET": "dljaSLKDJlajDLKjd2390asldLAKSdjadlsd23",
+      "NEXT_PRIVATE_SKIP_OPTIMIZATION": "true"
     }
   },
   "functions": {
     "app/api/**/*": {
-      "memory": 1024
+      "memory": 1024,
+      "maxDuration": 30
     }
   },
   "headers": [
     {
-      "source": "/(.*)",
+      "source": "/api/(.*)",
       "headers": [
         {
           "key": "Cache-Control",
@@ -41,6 +44,33 @@
         {
           "key": "Pragma",
           "value": "no-cache"
+        }
+      ]
+    },
+    {
+      "source": "/(.*).js",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=31536000, immutable"
+        }
+      ]
+    },
+    {
+      "source": "/(.*).css",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=31536000, immutable"
+        }
+      ]
+    },
+    {
+      "source": "/images/(.*)",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=31536000, immutable"
         }
       ]
     }
