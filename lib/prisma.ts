@@ -24,6 +24,9 @@ function getPrismaClient() {
         url: process.env.DATABASE_URL
       }
     },
+    // 연결 풀 설정 (AWS Pooler 최적화)
+    // AWS Pooler는 이미 연결 풀링을 제공하므로 최소 설정
+    // https://www.prisma.io/docs/concepts/components/prisma-client/working-with-prismaclient/connection-pool
   });
 
   // 개발 환경에서는 전역 객체에 저장하여 핫 리로드 시 재연결 방지
@@ -42,10 +45,22 @@ export async function checkDatabaseConnection() {
   try {
     // 간단한 쿼리 실행으로 연결 확인
     await prisma.$queryRaw`SELECT 1`;
-    return { connected: true, error: null };
+    
+    // DB 서버 정보 조회
+    const serverInfo = await prisma.$queryRaw`SELECT version()`;
+    
+    return { 
+      connected: true, 
+      error: null,
+      serverInfo: serverInfo
+    };
   } catch (error) {
     console.error('데이터베이스 연결 오류:', error);
-    return { connected: false, error: String(error) };
+    return { 
+      connected: false, 
+      error: String(error),
+      serverInfo: null
+    };
   }
 }
 
