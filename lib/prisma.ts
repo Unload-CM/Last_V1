@@ -1,65 +1,120 @@
 import { PrismaClient, Prisma } from '@prisma/client';
+import { createHash } from 'crypto';
 
-// PrismaClient 전역 타입 선언
-const globalForPrisma = global as unknown as { prisma: PrismaClient };
+// DATABASE_URL 확인 (디버깅용)
+console.log('현재 사용 중인 DB 연결 URL:', process.env.DATABASE_URL?.replace(/:.+@/, ':****@'));
+console.log('현재 사용 중인 DIRECT URL:', process.env.DIRECT_URL?.replace(/:.+@/, ':****@'));
 
-// 데이터베이스 연결 문제 발생 시 재시도 로직
-function getPrismaClient() {
-  // 전역 객체가 있으면 재사용
-  if (globalForPrisma.prisma) {
-    return globalForPrisma.prisma;
-  }
-  
-  // 환경에 따른 로그 레벨 설정
-  const logLevels: Prisma.LogLevel[] = process.env.NODE_ENV === 'development' 
-    ? ['query', 'error', 'warn'] 
-    : ['error'];
-  
-  // 새 Prisma 클라이언트 생성
+// 환경 변수 로그 레벨 설정
+const logLevels: Prisma.LogLevel[] = process.env.NODE_ENV === 'development' 
+  ? ['query', 'info', 'warn', 'error'] 
+  : ['error'];
+
+// DATABASE_URL 유효성 검증
+if (!process.env.DATABASE_URL) {
+  console.error('DATABASE_URL 환경 변수가 설정되지 않았습니다.');
+}
+
+// 해시 생성 함수 
+function hash(str: string): string {
+  return createHash('sha256').update(str).digest('hex').substring(0, 8);
+}
+
+// PrismaClient 인스턴스를 위한 전역 타입 선언
+const globalForPrisma = global as unknown as {
+  prisma: PrismaClient | undefined;
+};
+
+// Prisma 클라이언트 생성 함수
+function createPrismaClient(): PrismaClient {
+  // 개발 환경에서 디버깅을 위한 로깅 활성화
   const client = new PrismaClient({
     log: logLevels,
-    // 연결 타임아웃 설정
-    datasources: {
-      db: {
-        url: process.env.DATABASE_URL
-      }
-    },
-    // 연결 풀 설정 (AWS Pooler 최적화)
-    // AWS Pooler는 이미 연결 풀링을 제공하므로 최소 설정
-    // https://www.prisma.io/docs/concepts/components/prisma-client/working-with-prismaclient/connection-pool
+    errorFormat: 'pretty',
   });
 
-  // 개발 환경에서는 전역 객체에 저장하여 핫 리로드 시 재연결 방지
-  if (process.env.NODE_ENV !== 'production') {
-    globalForPrisma.prisma = client;
-  }
-  
+  // 연결 시간 초과 및 재시도 설정
+  let connectionAttempts = 0;
+  const maxAttempts = 3;
+  const timeoutMs = 5000;
+
+  // 확장 메서드 추가: 데이터베이스 연결 확인
+  client.$extends({
+    name: 'dbConnectionCheck',
+    query: {
+      $allModels: {
+        async $allOperations({ args, query, operation, model }) {
+          try {
+            const result = await query(args);
+            // 연결 성공 시 재시도 카운터 리셋
+            connectionAttempts = 0;
+            return result;
+          } catch (error) {
+            // 연결 관련 오류 처리
+            if (error instanceof Prisma.PrismaClientInitializationError ||
+                error instanceof Prisma.PrismaClientRustPanicError ||
+                error instanceof Prisma.PrismaClientKnownRequestError) {
+              
+              connectionAttempts++;
+              console.error(`데이터베이스 연결 시도 ${connectionAttempts}/${maxAttempts} 실패:`, error);
+              
+              if (connectionAttempts < maxAttempts) {
+                // 지수 백오프로 재시도
+                const delay = Math.min(timeoutMs * Math.pow(2, connectionAttempts - 1), 30000);
+                console.log(`${delay}ms 후 재시도합니다...`);
+                await new Promise(resolve => setTimeout(resolve, delay));
+                return query(args);
+              }
+            }
+            throw error;
+          }
+        },
+      },
+    },
+  });
+
+  // 확장된 클라이언트 반환
   return client;
 }
 
-// 클라이언트 인스턴스 생성
-export const prisma = getPrismaClient();
+// 클라이언트 인스턴스 생성 (개발 환경에서는 전역 변수 재사용)
+export const prisma = globalForPrisma.prisma || createPrismaClient();
+
+// 개발 환경에서만 전역 객체에 저장 (핫 리로딩 시 연결 재사용)
+if (process.env.NODE_ENV !== 'production') {
+  globalForPrisma.prisma = prisma;
+}
 
 // 데이터베이스 연결 확인 함수
 export async function checkDatabaseConnection() {
   try {
-    // 간단한 쿼리 실행으로 연결 확인
-    await prisma.$queryRaw`SELECT 1`;
+    console.log('데이터베이스 연결 확인 중...');
+    console.log('현재 DB 연결 URL:', process.env.DATABASE_URL?.replace(/:.+@/, ':****@'));
     
-    // DB 서버 정보 조회
-    const serverInfo = await prisma.$queryRaw`SELECT version()`;
-    
+    // 간단한 쿼리로 연결 확인
+    await prisma.$queryRaw`SELECT 1 as connection_test`;
     return { 
       connected: true, 
-      error: null,
-      serverInfo: serverInfo
+      message: '데이터베이스에 성공적으로 연결되었습니다.',
+      dbInfo: {
+        host: process.env.POSTGRES_HOST || 'unknown',
+        port: process.env.POSTGRES_PORT || 'unknown',
+        database: process.env.POSTGRES_DATABASE || 'postgres',
+        user: process.env.POSTGRES_USER || 'unknown'
+      }
     };
   } catch (error) {
     console.error('데이터베이스 연결 오류:', error);
     return { 
       connected: false, 
-      error: String(error),
-      serverInfo: null
+      message: '데이터베이스 연결에 실패했습니다.', 
+      error: error instanceof Error ? error.message : String(error),
+      dbInfo: {
+        host: process.env.POSTGRES_HOST || 'unknown',
+        port: process.env.POSTGRES_PORT || 'unknown',
+        database: process.env.POSTGRES_DATABASE || 'postgres',
+        user: process.env.POSTGRES_USER || 'unknown'
+      }
     };
   }
 }

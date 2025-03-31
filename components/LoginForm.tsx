@@ -17,7 +17,7 @@ export default function LoginForm() {
   useEffect(() => {
     const errorMessage = router.query.error;
     if (errorMessage) {
-      // console.log('URL에서 감지된 오류:', errorMessage);
+      console.log('URL에서 감지된 오류:', errorMessage);
       setError(typeof errorMessage === 'string' ? errorMessage : t('login.invalidCredentials'));
     }
   }, [router.query, t]);
@@ -33,22 +33,35 @@ export default function LoginForm() {
       return;
     }
 
-    // console.log('로그인 시도:', { employeeId });
+    console.log('로그인 시도:', { employeeId });
 
     try {
+      // DB 연결 상태 먼저 확인
+      const dbCheckRes = await fetch('/api/db-check');
+      const dbStatus = await dbCheckRes.json();
+      console.log('DB 상태 확인:', dbStatus);
+
+      if (!dbStatus.status || dbStatus.status === 'error') {
+        console.error('DB 연결 오류:', dbStatus);
+        setError('데이터베이스 연결에 실패했습니다. 관리자에게 문의하세요.');
+        setIsLoading(false);
+        return;
+      }
+
+      // 로그인 시도
       const result = await signIn('credentials', {
         redirect: false,
         employeeId: employeeId, // email 대신 employeeId 사용
         password,
       });
 
-      // console.log('로그인 결과:', result);
+      console.log('로그인 결과:', result);
 
       if (result?.error) {
-        // console.error('로그인 오류:', result.error);
+        console.error('로그인 오류:', result.error);
         setError(result.error || t('login.invalidCredentials'));
       } else if (result?.ok) {
-        // console.log('로그인 성공');
+        console.log('로그인 성공, 대시보드로 이동');
         // 로그인 성공 시 로컬 스토리지에 최소한의 정보만 저장
         try {
           localStorage.setItem('adminInfo', JSON.stringify({
@@ -60,13 +73,16 @@ export default function LoginForm() {
           // 로컬 스토리지 오류는 무시 - 세션 인증은 NextAuth가 처리함
         }
         
-        router.push('/dashboard');
+        // 세션 상태 확인 후 대시보드로 리다이렉트
+        setTimeout(() => {
+          router.push('/dashboard');
+        }, 500);
       } else {
-        // console.error('로그인 응답 불명확:', result);
+        console.error('로그인 응답 불명확:', result);
         setError(t('login.error'));
       }
     } catch (err) {
-      // console.error('로그인 예외 발생:', err);
+      console.error('로그인 예외 발생:', err);
       setError(t('login.error'));
     } finally {
       setIsLoading(false);

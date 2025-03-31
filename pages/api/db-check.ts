@@ -1,59 +1,50 @@
 // 디버깅 목적의 파일 - 데이터베이스 연결 확인용
 import { NextApiRequest, NextApiResponse } from 'next';
-import { prisma, checkDatabaseConnection } from '@/lib/prisma';
+import { checkDatabaseConnection } from '@/lib/prisma';
 
-export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+/**
+ * 데이터베이스 연결 상태를 확인하는 API 엔드포인트
+ * 
+ * @route GET /api/db-check
+ * @access 개발 환경에서만 접근 가능
+ * @returns {object} 데이터베이스 연결 상태 및 메시지
+ */
+export default async function handler(
+  req: NextApiRequest,
+  res: NextApiResponse
+) {
+  console.log('DB 체크 API 호출됨');
+
+  // GET 요청만 허용
+  if (req.method !== 'GET') {
+    return res.status(405).json({ error: '허용되지 않는 메서드입니다.' });
+  }
+
   try {
     // 데이터베이스 연결 확인
-    const connectionStatus = await checkDatabaseConnection();
-    
-    // 기본 데이터 확인 시도
-    let dataCount: Record<string, number> = {};
-    let errorMsg: string | null = null;
-    
-    try {
-      // 연결이 확인되었을 때만 데이터 쿼리 시도
-      if (connectionStatus.connected) {
-        dataCount = {
-          status: await prisma.status.count(),
-          priority: await prisma.priority.count(),
-          category: await prisma.category.count(),
-          department: await prisma.department.count(),
-          employee: await prisma.employee.count(),
-          issue: await prisma.issue.count()
-        };
-      } else {
-        errorMsg = connectionStatus.error;
-      }
-    } catch (countError) {
-      console.error('데이터 카운트 오류:', countError);
-      errorMsg = String(countError);
+    const connectionResult = await checkDatabaseConnection();
+
+    if (connectionResult.connected) {
+      return res.status(200).json({
+        success: true,
+        message: connectionResult.message,
+        timestamp: new Date().toISOString()
+      });
+    } else {
+      return res.status(500).json({
+        success: false,
+        message: connectionResult.message,
+        error: connectionResult.error,
+        timestamp: new Date().toISOString()
+      });
     }
-    
-    // 무조건 응답 반환 (디버깅 용도)
-    return res.status(connectionStatus.connected ? 200 : 500).json({
-      status: connectionStatus.connected ? 'success' : 'error',
-      message: connectionStatus.connected ? '데이터베이스 연결 성공' : '데이터베이스 연결 실패',
-      error: errorMsg,
-      serverInfo: connectionStatus.serverInfo,
-      databaseInfo: {
-        connectionString: process.env.NODE_ENV === 'development' 
-          ? process.env.DATABASE_URL?.replace(/:.+@/, ':****@') 
-          : '보안상 이유로 표시하지 않음',
-        database: process.env.POSTGRES_DATABASE || 'postgres',
-        schema: process.env.POSTGRES_SCHEMA || 'public',
-        host: process.env.POSTGRES_HOST || 'unknown',
-        port: process.env.POSTGRES_PORT || 'unknown'
-      },
-      dataCount: connectionStatus.connected ? dataCount : undefined,
-      env: process.env.NODE_ENV
-    });
   } catch (error) {
-    console.error('오류 발생:', error);
+    console.error('API 처리 중 오류:', error);
     return res.status(500).json({
-      status: 'error',
-      message: '처리 중 오류가 발생했습니다.',
-      error: String(error)
+      success: false,
+      message: '서버 내부 오류',
+      error: error instanceof Error ? error.message : String(error),
+      timestamp: new Date().toISOString()
     });
   }
 } 

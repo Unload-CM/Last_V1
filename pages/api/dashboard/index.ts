@@ -1,6 +1,6 @@
 import { NextApiRequest, NextApiResponse } from 'next';
 import { prisma } from '@/lib/prisma';
-import { getSession } from 'next-auth/react';
+// import { getSession } from 'next-auth/react'; // 클라이언트 사이드 함수이므로 제거
 import { unstable_getServerSession } from 'next-auth/next';
 import { authOptions } from '@/pages/api/auth/[...nextauth]';
 
@@ -14,10 +14,18 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // 세션 확인 (서버 사이드)
     const session = await unstable_getServerSession(req, res, authOptions);
     
-    // 인증 확인 (개발 환경에서는 인증 검사 건너뛰기 - 필요시 활성화)
-    // if (!session) {
-    //   return res.status(401).json({ error: '인증되지 않은 요청입니다.' });
-    // }
+    // 인증 확인 (실제 세션 검사 활성화)
+    if (!session) {
+      console.log('대시보드 API: 인증되지 않은 요청');
+      // 오류 응답을 반환하지만, 개발 환경에서는 계속 진행
+      if (process.env.NODE_ENV === 'development') {
+        console.log('개발 환경에서는 인증 건너뛰기');
+      } else {
+        return res.status(401).json({ error: '인증되지 않은 요청입니다.' });
+      }
+    } else {
+      console.log('대시보드 API: 인증된 사용자', session.user);
+    }
 
     // 이슈 상태별 카운트 조회
     const statusCounts = await prisma.issue.groupBy({

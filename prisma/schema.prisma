@@ -1,23 +1,54 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// 직접 DB 연결 (db.ekzoqpoztqjaneeamkcz.supabase.co:5432) 사용
 generator client {
   provider = "prisma-client-js"
 }
 
+// 직접 Supabase PostgreSQL 연결 (포트 5432 사용)
 datasource db {
-  provider  = "postgresql"
-  url       = env("DATABASE_URL")
-  directUrl = env("POSTGRES_URL_NON_POOLING")
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+// 역할 정의
+enum Role {
+  USER
+  ADMIN
+  SUPERVISOR
+  MANAGER
 }
 
 model User {
-  id        String   @id @default(uuid())
-  email     String   @unique
-  name      String?
-  image     String?
-  password  String?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  
-  posts     Post[]
+  id                Int                 @id @default(autoincrement())
+  email             String              @unique
+  name              String?
+  password          String?
+  role              Role                @default(USER)
+  createdAt         DateTime            @default(now())
+  updatedAt         DateTime            @updatedAt
+  department        Department?         @relation(fields: [departmentId], references: [id])
+  departmentId      Int?
+  position          String?
+  notifications     Notification[]
+  profileImage      String?
+  preferences       UserPreferences?
+
+  comments          Comment[]
+  tasks             Task[]              @relation("AssignedTasks")
+  createdTasks      Task[]              @relation("CreatedTasks")
+  watchingTasks     TaskWatcher[]
+  approvals         Approval[]
+  workLogs          WorkLog[]
+  reportedTasks     Task[]              @relation("ReportedTasks")
+  posts             Post[]              @relation("UserPosts")
+
+  // 상태 변경 이력
+  statusChanges     StatusChange[]
+
+  sessions          Session[]
 }
 
 model Post {
@@ -28,8 +59,195 @@ model Post {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   
-  author    User     @relation(fields: [authorId], references: [id])
-  authorId  String
+  author    User     @relation("UserPosts", fields: [authorId], references: [id])
+  authorId  Int
+}
+
+// 사용자 세션
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       Int
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+// 사용자 설정
+model UserPreferences {
+  id              Int      @id @default(autoincrement())
+  userId          Int      @unique
+  theme           String?  @default("light")
+  language        String?  @default("ko")
+  emailNotify     Boolean  @default(true)
+  desktopNotify   Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+// 작업 관련 모델
+model Task {
+  id              Int           @id @default(autoincrement())
+  title           String
+  description     String?
+  status          String        @default("TODO") // TODO, IN_PROGRESS, REVIEW, DONE
+  priority        String        @default("MEDIUM") // LOW, MEDIUM, HIGH, URGENT
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+  dueDate         DateTime?
+  startDate       DateTime?
+  completedAt     DateTime?
+  departmentId    Int?
+  
+  // 관계
+  assignee        User?         @relation("AssignedTasks", fields: [assigneeId], references: [id])
+  assigneeId      Int?
+  creator         User          @relation("CreatedTasks", fields: [creatorId], references: [id])
+  creatorId       Int
+  department      Department?   @relation(fields: [departmentId], references: [id])
+  parent          Task?         @relation("SubTasks", fields: [parentId], references: [id])
+  parentId        Int?
+  subtasks        Task[]        @relation("SubTasks")
+  watchers        TaskWatcher[]
+  comments        Comment[]
+  attachments     Attachment[]
+  approvals       Approval[]
+  workLogs        WorkLog[]
+  reporter        User?         @relation("ReportedTasks", fields: [reporterId], references: [id])
+  reporterId      Int?
+  
+  // 상태 변경 이력
+  statusChanges   StatusChange[]
+  
+  // 태그
+  tags            TaskTag[]
+}
+
+model TaskWatcher {
+  id              Int      @id @default(autoincrement())
+  taskId          Int
+  userId          Int
+  createdAt       DateTime @default(now())
+  
+  task            Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@unique([taskId, userId])
+}
+
+model TaskTag {
+  id              Int      @id @default(autoincrement())
+  taskId          Int
+  tagId           Int
+  createdAt       DateTime @default(now())
+  
+  task            Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  tag             Tag      @relation(fields: [tagId], references: [id], onDelete: Restrict)
+  
+  @@unique([taskId, tagId])
+}
+
+model Comment {
+  id              Int         @id @default(autoincrement())
+  content         String
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+  
+  task            Task        @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  taskId          Int
+  author          User        @relation(fields: [authorId], references: [id])
+  authorId        Int
+  attachments     Attachment[]
+  
+  @@index([taskId])
+  @@index([authorId])
+}
+
+model Attachment {
+  id              Int       @id @default(autoincrement())
+  fileName        String
+  fileUrl         String
+  fileType        String?
+  fileSize        Int?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  
+  task            Task?     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  taskId          Int?
+  comment         Comment?  @relation(fields: [commentId], references: [id], onDelete: Cascade)
+  commentId       Int?
+  
+  @@index([taskId])
+  @@index([commentId])
+}
+
+model Approval {
+  id              Int       @id @default(autoincrement())
+  status          String    @default("PENDING") // PENDING, APPROVED, REJECTED
+  comment         String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  approvedAt      DateTime?
+  
+  task            Task      @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  taskId          Int
+  approver        User      @relation(fields: [approverId], references: [id])
+  approverId      Int
+  
+  @@index([taskId])
+  @@index([approverId])
+}
+
+model WorkLog {
+  id              Int       @id @default(autoincrement())
+  timeSpent       Int       // 분 단위
+  description     String?
+  startedAt       DateTime
+  endedAt         DateTime?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  
+  task            Task      @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  taskId          Int
+  user            User      @relation(fields: [userId], references: [id])
+  userId          Int
+  
+  @@index([taskId])
+  @@index([userId])
+}
+
+model StatusChange {
+  id              Int       @id @default(autoincrement())
+  oldStatus       String
+  newStatus       String
+  comment         String?
+  createdAt       DateTime  @default(now())
+  
+  task            Task      @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  taskId          Int
+  user            User      @relation(fields: [userId], references: [id])
+  userId          Int
+  
+  @@index([taskId])
+  @@index([userId])
+}
+
+// 알림
+model Notification {
+  id              Int       @id @default(autoincrement())
+  type            String    // TASK_ASSIGNED, COMMENT_ADDED, DUE_DATE, etc.
+  message         String
+  isRead          Boolean   @default(false)
+  createdAt       DateTime  @default(now())
+  
+  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId          Int
+  
+  @@index([userId])
+  @@index([isRead])
 }
 
 model Status {
@@ -86,6 +304,8 @@ model Department {
   issues            Issue[]    @relation("DepartmentIssues")
   transferredIssues Issue[]    @relation("TransferredIssues")
   employees         Employee[]
+  users             User[]
+  tasks             Task[]
 
   @@index([name])
   @@map("departments")
@@ -127,9 +347,11 @@ model ThaiPhrase {
 model Tag {
   id        Int          @id @default(autoincrement())
   name      String       @unique
+  color     String?      @default("#cccccc")
   createdAt DateTime     @default(now())
   updatedAt DateTime     @updatedAt
   phrases   ThaiPhrase[] @relation("PhraseToTag")
+  tasks     TaskTag[]
 }
 
 model Issue {
