@@ -1,9 +1,12 @@
 import { NextApiRequest, NextApiResponse } from 'next';
 import { handleFileUpload, processUploadedFile } from '@/utils/upload/fileUploadHandler';
 
+// Vercel 배포를 위한 서버리스 함수 최적화 설정
 export const config = {
   api: {
     bodyParser: false, // formidable 사용을 위해 기본 파서 비활성화
+    responseLimit: false, // 응답 크기 제한 없음
+    maxDuration: 5, // 함수 실행 최대 시간 (초)
   },
 };
 
@@ -14,6 +17,17 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 
   try {
+    // 요청 헤더에서 Content-Length 확인하여 크기 제한 적용
+    const contentLength = req.headers['content-length'];
+    const maxSize = 30 * 1024 * 1024; // 30MB
+
+    if (contentLength && parseInt(contentLength) > maxSize) {
+      return res.status(413).json({
+        success: false,
+        message: '파일 크기가 너무 큽니다. 최대 30MB까지 허용됩니다.',
+      });
+    }
+
     // 파일 업로드 처리
     const { files } = await handleFileUpload(req, res);
     
@@ -23,16 +37,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       optimizedPath: string;
       thumbnailPath: string;
       originalSize: number;
-      optimizedSize: number;
-      thumbnailSize: number;
-      width: number;
-      height: number;
-    } | {
-      originalPath: string;
-      optimizedPath: string;
-      thumbnailPath: string;
-      originalSize: number;
-      duration: number;
+      optimizedSize?: number;
+      thumbnailSize?: number;
+      width?: number;
+      height?: number;
+      duration?: number;
     }> = [];
 
     // 각 파일 처리

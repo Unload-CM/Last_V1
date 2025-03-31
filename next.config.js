@@ -6,7 +6,7 @@ const nextConfig = {
     domains: ['*'],
   },
   
-  output: 'export',
+  // output: 'export', // API 라우트를 사용하기 위해 주석 처리
   trailingSlash: true,
   
   env: {
@@ -20,7 +20,19 @@ const nextConfig = {
   },
   eslint: {
     ignoreDuringBuilds: true,
-  }
+  },
+  
+  // Vercel 서버리스 함수에서 업로드 폴더 제외
+  outputFileTracing: true,
+  experimental: {
+    outputFileTracingExcludes: {
+      '*': [
+        'public/uploads/**',
+        '.next/cache/**',
+        'node_modules/sharp/**',
+      ],
+    },
+  },
 };
 
 module.exports = nextConfig; 
