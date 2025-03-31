@@ -3,13 +3,9 @@ import { prisma } from "@/lib/prisma";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 
-// Edge 런타임 설정 제거하고 Node.js 런타임 사용
-// export const runtime = 'edge';
+// API 라우트 설정
 export const runtime = 'nodejs';
-
-// 정적 생성 사용하지 않음 (항상 동적 경로로 처리) - 일시 제거
-// export const dynamic = 'force-dynamic';
-// export const fetchCache = 'force-no-store';
+export const dynamic = 'force-dynamic';
 
 // 타입 정의
 interface IssueSummary {
