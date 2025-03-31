@@ -136,6 +136,7 @@ const defaultTranslations: Record<Language, Record<string, any>> = {
     },
     dashboard: {
       title: "대시보드",
+      description: "CoilMaster 대시보드 - 이슈 통계 및 요약",
       topIssueFinders: "이슈 발견자 랭킹",
       topIssueResolvers: "이슈 해결자 랭킹",
       topCommenters: "댓글 작성 랭킹",
@@ -158,21 +159,30 @@ const defaultTranslations: Record<Language, Record<string, any>> = {
       loading: "대시보드 데이터 로딩 중...",
       loadingError: "대시보드 데이터를 불러오는데 실패했습니다",
       recentIssues: "최근 이슈",
+      noIssues: "등록된 이슈가 없습니다",
+      noDepartmentData: "부서별 데이터가 없습니다",
       noRecentIssues: "최근 생성된 이슈가 없습니다",
       score: "점수",
       points: "점수",
       issues: "이슈",
       comments: "댓글",
+      issuesByDepartment: "부서별 이슈",
       dateFilter: {
         quickSelect: "빠른 선택"
       }
     },
     issues: {
       title: "이슈 제목",
+      total: "전체 이슈",
+      status: {
+        open: "미처리 이슈",
+        inProgress: "처리 중 이슈",
+        resolved: "해결된 이슈",
+        closed: "종료된 이슈"
+      },
       search: "이슈 검색",
       newIssue: "이슈 등록",
       department: "부서",
-      status: "상태",
       priority: "우선순위",
       category: "카테고리",
       createdAt: "생성일",
