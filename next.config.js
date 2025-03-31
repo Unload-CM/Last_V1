@@ -40,12 +40,7 @@ const nextConfig = {
       };
     }
     
-    // CSS 모듈 처리 개선
-    config.module.rules.push({
-      test: /\.css$/,
-      use: ['style-loader', 'css-loader'],
-      include: /node_modules/,
-    });
+    // CSS 모듈 처리 설정 제거 (내장 로더 사용)
     
     return config;
   },
