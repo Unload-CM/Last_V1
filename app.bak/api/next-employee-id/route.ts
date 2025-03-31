@@ -1,10 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 
-// 정적 생성 사용하지 않음 (항상 동적 경로로 처리)
+// 서버리스 배포를 위한 설정
 export const dynamic = 'force-dynamic';
-export const fetchCache = 'force-no-store';
-export const runtime = 'nodejs';
 
 /**
  * 다음 직원 ID 생성 API

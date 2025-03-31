@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 
+// 서버리스 배포를 위한 설정
+export const dynamic = 'force-dynamic';
+
 // 이메일 설정 임시 저장 (Prisma 모델이 없으므로)
 const DEFAULT_EMAIL_SETTINGS = {
   id: 1,
