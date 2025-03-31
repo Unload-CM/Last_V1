@@ -11,51 +11,27 @@ const nextConfig = {
     unoptimized: true, // 이미지 최적화 비활성화
   },
   
-  // 정적 페이지 생성 비활성화
-  staticPageGenerationTimeout: 300,
-  distDir: '.next',
+  // 정적 페이지 생성 설정
+  output: 'standalone', // 서버리스 배포 모드
   
-  // 클라이언트 모듈 오류 방지를 위한 실험적 기능 설정
-  experimental: {
-    serverComponentsExternalPackages: ['@prisma/client', 'bcrypt'],
-    esmExternals: 'loose',
-    serverActions: false, // 서버 액션 비활성화
-    appDir: true, // App 디렉토리 명시적으로 활성화
-    forceSwcTransforms: true, // SWC 트랜스폼 강제 적용
-    instrumentationHook: false, // 계측 훅 비활성화
-    optimizePackageImports: false, // 패키지 임포트 최적화 비활성화
-  },
+  // Next.js 15.2.4에서 변경된 설정
+  serverExternalPackages: ['@prisma/client', 'bcrypt'],
   
-  // webpack 설정 추가: NextAuth와 함께 사용하기 위한 폴리필 추가
-  webpack: (config, { isServer }) => {
-    if (!isServer) {
-      config.resolve.fallback = {
-        ...config.resolve.fallback,
-        fs: false,
-        net: false,
-        tls: false,
-        crypto: false,
-        stream: false,
-        path: false,
-      };
+  // CSS 모듈 문제 해결을 위한 웹팩 설정
+  webpack: (config) => {
+    // clientModules 문제 해결을 위한 CSS 모듈 처리 최적화
+    if (config.module?.rules) {
+      config.module.rules.forEach((rule) => {
+        if (rule.oneOf && Array.isArray(rule.oneOf)) {
+          rule.oneOf.forEach((r) => {
+            if (r.test && r.test.toString().includes('css')) {
+              r.sideEffects = true;
+            }
+          });
+        }
+      });
     }
-    
-    // CSS 모듈 처리 설정 제거 (내장 로더 사용)
-    
     return config;
-  },
-  
-  // 서버 측 API 라우팅을 명시적으로 처리하기 위한 구성
-  async headers() {
-    return [
-      {
-        source: '/api/:path*',
-        headers: [
-          { key: 'Cache-Control', value: 'no-store, must-revalidate' },
-          { key: 'Pragma', value: 'no-cache' },
-        ],
-      },
-    ];
   },
   
   // 환경 변수 설정
@@ -77,18 +53,7 @@ const nextConfig = {
     ignoreDuringBuilds: true,
   },
   
-  // CSS 관련 설정
-  swcMinify: true, // SWC 최적화 활성화
-  optimizeFonts: true, // 폰트 최적화 활성화
-  
-  // 로깅 레벨 설정
-  logging: {
-    fetches: {
-      fullUrl: true,
-    },
-  },
-  
-  // 빌드 시 소스맵 비활성화로 성능 향상
+  // 빌드 소스맵 비활성화
   productionBrowserSourceMaps: false,
 };
 

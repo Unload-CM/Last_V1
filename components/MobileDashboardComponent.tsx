@@ -1,20 +1,21 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useSession } from 'next-auth/react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { BarChart2 } from 'lucide-react';
-import { 
-  BarChart, 
-  Bar, 
-  XAxis, 
-  YAxis, 
-  Tooltip, 
-  Legend,
-  ResponsiveContainer 
-} from 'recharts';
 import { Skeleton } from '@/components/ui/skeleton';
 import LoginForm from '@/components/LoginForm';
+import dynamic from 'next/dynamic';
+
+// 차트 컴포넌트 동적 임포트 (CSR 전용)
+const MobileBarChart = dynamic(
+  () => import('@/components/MobileBarChart'),
+  { 
+    ssr: false, 
+    loading: () => <Skeleton className="h-64 w-full" /> 
+  }
+);
 
 // 간소화된 월 데이터 - 언어별 월 이름
 const MONTHS_KO = ['1월', '2월', '3월', '4월', '5월', '6월', '7월', '8월', '9월', '10월', '11월', '12월'];
@@ -48,6 +49,12 @@ export default function MobileDashboardComponent() {
   const [language, setLanguage] = useState('ko');
   const [monthlyData, setMonthlyData] = useState<ChartDataType>([]);
   const [loading, setLoading] = useState(true);
+  const [mounted, setMounted] = useState(false);
+
+  // 컴포넌트가 클라이언트에서 마운트되었는지 확인
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   // 쿠키에서 언어 설정 가져오기
   const getCookieLanguage = () => {
@@ -84,10 +91,7 @@ export default function MobileDashboardComponent() {
       
       const response = await fetch(
         `/api/dashboard?from=${startOfMonth.toISOString()}&to=${endOfDay.toISOString()}&lang=${lang}`,
-        { 
-          headers: { 'Cache-Control': 'no-cache, no-store' },
-          cache: 'no-store'
-        }
+        { cache: 'no-store' }
       );
       
       if (response.ok) {
@@ -155,7 +159,7 @@ export default function MobileDashboardComponent() {
   }
 
   // 로딩 중일 때 스켈레톤 UI 표시
-  if (loading) {
+  if (loading || !mounted) {
     return (
       <div className="container mx-auto p-4">
         <Card className="w-full">
@@ -185,21 +189,14 @@ export default function MobileDashboardComponent() {
           </CardHeader>
           <CardContent className="px-4 pb-4">
             <div className="h-64">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={monthlyData}>
-                  <XAxis dataKey="name" />
-                  <YAxis allowDecimals={false} />
-                  <Tooltip />
-                  <Legend />
-                  <Bar 
-                    dataKey="issues" 
-                    name={language === 'ko' ? '이슈 수' :
-                         language === 'th' ? 'จำนวนปัญหา' :
-                         'Issues Count'} 
-                    fill="#8884d8" 
-                  />
-                </BarChart>
-              </ResponsiveContainer>
+              <MobileBarChart 
+                data={monthlyData} 
+                dataKey="issues"
+                nameKey="name"
+                label={language === 'ko' ? '이슈 수' :
+                      language === 'th' ? 'จำนวนปัญหา' :
+                      'Issues Count'}
+              />
             </div>
           </CardContent>
         </Card>
