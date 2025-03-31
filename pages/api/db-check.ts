@@ -6,6 +6,16 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
+  // 개발 환경에서는 인증을 건너뛰도록 설정
+  if (process.env.NODE_ENV !== 'development') {
+    // 프로덕션 환경에서는 간단한 API 키 체크
+    // 실제 프로젝트에서는 더 안전한 인증 방식 권장
+    const apiKey = req.headers['x-api-key'];
+    if (apiKey !== process.env.DB_CHECK_API_KEY) {
+      return res.status(401).json({ error: '인증되지 않은 요청입니다.' });
+    }
+  }
+
   try {
     // 데이터베이스 연결 확인
     const connectionStatus = await checkDatabaseConnection();

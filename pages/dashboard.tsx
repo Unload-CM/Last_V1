@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import Head from 'next/head';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { FiAlertCircle, FiCheckCircle, FiClock, FiList } from 'react-icons/fi';
+import { FiAlertCircle, FiCheckCircle, FiClock, FiList, FiRefreshCw } from 'react-icons/fi';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/router';
 import { useTranslation } from '@/store/languageStore';
@@ -67,6 +67,10 @@ export default function Dashboard() {
 
   // 인증 상태 확인
   useEffect(() => {
+    // 아직 세션을 확인 중이면 기다림
+    if (status === 'loading') return;
+    
+    // 인증되지 않았으면 로그인 페이지로 리다이렉트
     if (status === 'unauthenticated') {
       router.push('/login');
     }
@@ -86,9 +90,19 @@ export default function Dashboard() {
     setError(null);
     
     try {
-      const response = await fetch('/api/dashboard');
+      // API 요청 시 credentials 옵션 추가 (쿠키 전송을 위해)
+      const response = await fetch('/api/dashboard', {
+        credentials: 'include',
+        headers: {
+          'Cache-Control': 'no-cache',
+          'Pragma': 'no-cache'
+        }
+      });
       
       if (!response.ok) {
+        if (response.status === 401) {
+          throw new Error('인증되지 않은 사용자입니다. 다시 로그인해주세요.');
+        }
         throw new Error('대시보드 데이터를 불러오는데 실패했습니다.');
       }
       
@@ -99,7 +113,7 @@ export default function Dashboard() {
       setDepartmentSummary(data.issuesByDepartment);
     } catch (error) {
       console.error('대시보드 데이터 로드 실패:', error);
-      setError('데이터를 불러오는 중 오류가 발생했습니다.');
+      setError(error instanceof Error ? error.message : '데이터를 불러오는 중 오류가 발생했습니다.');
       
       // 폴백 데이터
       setIssueSummary({
@@ -114,13 +128,26 @@ export default function Dashboard() {
     }
   };
 
+  // 데이터 새로고침 함수
+  const handleRefresh = () => {
+    fetchDashboardData();
+  };
+
   // 로딩 중이거나 인증되지 않은 경우 로딩 UI 표시
-  if (status === 'loading' || status === 'unauthenticated') {
+  if (status === 'loading') {
     return (
-      <div className="container mx-auto p-4">
-        <h1 className="text-2xl font-bold">{t('common.loading')}</h1>
+      <div className="container mx-auto p-4 flex justify-center items-center h-[80vh]">
+        <div className="text-center">
+          <div className="w-12 h-12 border-t-2 border-b-2 border-blue-500 rounded-full animate-spin mx-auto mb-4"></div>
+          <h1 className="text-2xl font-bold">{t('common.loading')}</h1>
+        </div>
       </div>
     );
+  }
+
+  if (status === 'unauthenticated') {
+    // 인증되지 않은 경우는 useEffect에서 리다이렉트 처리
+    return null;
   }
 
   return (
@@ -131,7 +158,18 @@ export default function Dashboard() {
       </Head>
 
       <div className="container mx-auto p-4">
-        <h1 className="text-3xl font-bold mb-6">{t('dashboard.title')}</h1>
+        <div className="flex justify-between items-center mb-6">
+          <h1 className="text-3xl font-bold">{t('dashboard.title')}</h1>
+          
+          <button 
+            onClick={handleRefresh}
+            disabled={isLoading}
+            className="flex items-center gap-2 px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 transition-colors disabled:opacity-50"
+          >
+            <FiRefreshCw className={`${isLoading ? 'animate-spin' : ''}`} />
+            {isLoading ? t('common.loading') : t('common.refresh')}
+          </button>
+        </div>
         
         {error && (
           <div className="bg-red-100 text-red-700 p-4 rounded-md mb-6">
@@ -198,7 +236,9 @@ export default function Dashboard() {
           <CardContent>
             <div className="space-y-4">
               {isLoading ? (
-                <p>{t('common.loading')}</p>
+                <div className="flex justify-center py-4">
+                  <div className="w-8 h-8 border-t-2 border-b-2 border-blue-500 rounded-full animate-spin"></div>
+                </div>
               ) : recentIssues.length > 0 ? (
                 recentIssues.map(issue => (
                   <div key={issue.id} className="border-b pb-2 last:border-0">
@@ -228,7 +268,7 @@ export default function Dashboard() {
                   </div>
                 ))
               ) : (
-                <p>{t('dashboard.noIssues')}</p>
+                <p className="text-center py-4 text-gray-500">{t('dashboard.noIssues')}</p>
               )}
             </div>
           </CardContent>
@@ -242,7 +282,9 @@ export default function Dashboard() {
           <CardContent>
             <div className="space-y-4">
               {isLoading ? (
-                <p>{t('common.loading')}</p>
+                <div className="flex justify-center py-4">
+                  <div className="w-8 h-8 border-t-2 border-b-2 border-blue-500 rounded-full animate-spin"></div>
+                </div>
               ) : departmentSummary.length > 0 ? (
                 departmentSummary.map(dept => (
                   <div key={dept.id} className="flex justify-between items-center">
@@ -259,7 +301,7 @@ export default function Dashboard() {
                   </div>
                 ))
               ) : (
-                <p>{t('dashboard.noDepartmentData')}</p>
+                <p className="text-center py-4 text-gray-500">{t('dashboard.noDepartmentData')}</p>
               )}
             </div>
           </CardContent>

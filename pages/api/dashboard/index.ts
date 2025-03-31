@@ -1,5 +1,8 @@
 import { NextApiRequest, NextApiResponse } from 'next';
 import { prisma } from '@/lib/prisma';
+import { getSession } from 'next-auth/react';
+import { unstable_getServerSession } from 'next-auth/next';
+import { authOptions } from '@/pages/api/auth/[...nextauth]';
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== 'GET') {
@@ -8,6 +11,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 
   try {
+    // 세션 확인 (서버 사이드)
+    const session = await unstable_getServerSession(req, res, authOptions);
+    
+    // 인증 확인 (개발 환경에서는 인증 검사 건너뛰기 - 필요시 활성화)
+    // if (!session) {
+    //   return res.status(401).json({ error: '인증되지 않은 요청입니다.' });
+    // }
+
     // 이슈 상태별 카운트 조회
     const statusCounts = await prisma.issue.groupBy({
       by: ['statusId'],
@@ -105,8 +116,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     const issuesByDepartment = departmentCounts.map(item => ({
       id: item.departmentId,
-      name: departmentMap[item.departmentId].name,
-      label: departmentMap[item.departmentId].label,
+      name: departmentMap[item.departmentId]?.name || 'Unknown',
+      label: departmentMap[item.departmentId]?.label || 'Unknown',
       count: item._count.id
     }));
 
@@ -127,8 +138,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     const issuesByCategory = categoryCounts.map(item => ({
       id: item.categoryId,
-      name: categoryMap[item.categoryId].name,
-      label: categoryMap[item.categoryId].label,
+      name: categoryMap[item.categoryId]?.name || 'Unknown',
+      label: categoryMap[item.categoryId]?.label || 'Unknown',
       count: item._count.id
     }));
 
