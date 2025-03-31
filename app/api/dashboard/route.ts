@@ -3,9 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 
-// API 라우트 설정
-export const runtime = 'nodejs';
-export const dynamic = 'force-dynamic';
+// API 설정 모두 제거 (정적 내보내기와 호환되지 않음)
 
 // 타입 정의
 interface IssueSummary {
